@@ -2,16 +2,26 @@ import { useEffect, useState, useCallback } from 'react'
 import {
   CreditCard, Users, DollarSign, Loader2, Save,
   X, AlertTriangle, CheckCircle, XCircle, Edit3,
-  TrendingUp, Zap, Building2, Crown,
+  TrendingUp, Zap, Building2, Crown, Receipt,
+  History, ExternalLink, Send,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 function formatCurrency(amount) {
   if (amount == null) return '\u2014'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency', currency: 'USD',
+  return new Intl.NumberFormat('en-MY', {
+    style: 'currency', currency: 'MYR',
     minimumFractionDigits: 2,
   }).format(amount)
+}
+
+const BILL_STATUS_COLORS = {
+  pending: 'bg-neutral-100 text-neutral-600',
+  due: 'bg-yellow-100 text-yellow-700',
+  paid: 'bg-green-100 text-green-700',
+  overdue: 'bg-red-100 text-red-700',
+  deleted: 'bg-neutral-100 text-neutral-500',
+  failed: 'bg-red-100 text-red-700',
 }
 
 function formatDate(date) {
@@ -81,6 +91,15 @@ export default function SubscriptionManagement() {
   const [savingPlan, setSavingPlan] = useState(null)
   const [cancelConfirm, setCancelConfirm] = useState(null)
   const [changingPlan, setChangingPlan] = useState(null)
+  // Billing state
+  const [billingModal, setBillingModal] = useState(null)
+  const [generatingBill, setGeneratingBill] = useState(false)
+  const [billCycle, setBillCycle] = useState('monthly')
+  const [billPlanId, setBillPlanId] = useState(null)
+  const [billHistory, setBillHistory] = useState([])
+  const [showHistory, setShowHistory] = useState(null)
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [totalRevenue, setTotalRevenue] = useState(0)
 
   const loadSubscriptions = useCallback(async () => {
     try {
@@ -124,10 +143,14 @@ export default function SubscriptionManagement() {
 
   const calculateStats = useCallback(async () => {
     try {
-      const [activeRes, allCompaniesRes] = await Promise.all([
+      const [activeRes, allCompaniesRes, revenueRes] = await Promise.all([
         supabase.from('companies').select('id', { count: 'exact', head: true }).eq('subscription_status', 'active'),
         supabase.from('companies').select('*, subscription_plans(*)').eq('subscription_status', 'active'),
+        supabase.from('billing_payments').select('amount_cents').eq('status', 'paid'),
       ])
+
+      const revenue = (revenueRes.data || []).reduce((sum, p) => sum + (p.amount_cents || 0), 0)
+      setTotalRevenue(revenue / 100)
 
       const companies = allCompaniesRes.data || []
       let totalFree = 0
@@ -252,8 +275,207 @@ export default function SubscriptionManagement() {
     }
   }
 
+  const handleGenerateBill = async () => {
+    if (!billingModal) return
+    setGeneratingBill(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-billplz-bill`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            company_id: billingModal.id,
+            plan_id: billPlanId || billingModal.subscription_plan_id,
+            billing_cycle: billCycle,
+          }),
+        }
+      )
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Failed to generate bill')
+      setBillingModal(null)
+      await Promise.all([loadSubscriptions(), calculateStats()])
+    } catch (err) {
+      console.error('Failed to generate bill:', err)
+      alert('Error: ' + err.message)
+    } finally {
+      setGeneratingBill(false)
+    }
+  }
+
+  const loadBillingHistory = async (companyId) => {
+    setLoadingHistory(true)
+    setShowHistory(companyId)
+    try {
+      const { data, error } = await supabase
+        .from('billing_payments')
+        .select('*, subscription_plans(name)')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      setBillHistory(data || [])
+    } catch (err) {
+      console.error('Failed to load billing history:', err)
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
+  const selectedPlanForBill = plans.find((p) => p.id === (billPlanId || billingModal?.subscription_plan_id))
+  const billAmount = selectedPlanForBill
+    ? (billCycle === 'annual' ? (selectedPlanForBill.annual_price || 0) : (selectedPlanForBill.monthly_price || 0))
+    : 0
+
   return (
     <div className="space-y-6">
+      {/* Generate Bill Modal */}
+      {billingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl border border-neutral-200 w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold text-[#1E293B]">Generate Bill</h3>
+              <button onClick={() => setBillingModal(null)} className="text-neutral-400 hover:text-neutral-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#64748B] mb-1">Company</label>
+                <p className="text-sm font-semibold text-[#1E293B]">{billingModal.name}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#64748B] mb-1">Plan</label>
+                <select
+                  value={billPlanId || billingModal.subscription_plan_id || ''}
+                  onChange={(e) => setBillPlanId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1978E5]/20 focus:border-[#1978E5]"
+                >
+                  {plans.filter((p) => (p.monthly_price || 0) > 0).map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} — RM {p.monthly_price}/mo</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#64748B] mb-1">Billing Cycle</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setBillCycle('monthly')}
+                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                      billCycle === 'monthly'
+                        ? 'bg-[#1978E5] text-white border-[#1978E5]'
+                        : 'bg-white text-[#64748B] border-neutral-200 hover:bg-neutral-50'
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setBillCycle('annual')}
+                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                      billCycle === 'annual'
+                        ? 'bg-[#1978E5] text-white border-[#1978E5]'
+                        : 'bg-white text-[#64748B] border-neutral-200 hover:bg-neutral-50'
+                    }`}
+                  >
+                    Annual
+                  </button>
+                </div>
+              </div>
+              <div className="bg-neutral-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[#64748B]">Amount</span>
+                  <span className="text-xl font-bold text-[#1E293B]">{formatCurrency(billAmount)}</span>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setBillingModal(null)}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-[#64748B] bg-neutral-100 rounded-lg hover:bg-neutral-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleGenerateBill}
+                  disabled={generatingBill || billAmount <= 0}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-[#7C3AED] rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                >
+                  {generatingBill ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Generate & Send
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Billing History Modal */}
+      {showHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl border border-neutral-200 w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
+              <h3 className="text-lg font-semibold text-[#1E293B]">Billing History</h3>
+              <button onClick={() => setShowHistory(null)} className="text-neutral-400 hover:text-neutral-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-auto flex-1">
+              {loadingHistory ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-neutral-300" />
+                </div>
+              ) : billHistory.length === 0 ? (
+                <div className="text-center py-12 text-[#64748B]">
+                  <Receipt className="h-10 w-10 mx-auto mb-2 text-neutral-300" />
+                  <p className="text-sm">No billing history</p>
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-neutral-100 bg-neutral-50/50">
+                      <th className="text-left px-5 py-3 font-medium text-[#64748B]">Date</th>
+                      <th className="text-left px-5 py-3 font-medium text-[#64748B]">Description</th>
+                      <th className="text-left px-5 py-3 font-medium text-[#64748B]">Amount</th>
+                      <th className="text-left px-5 py-3 font-medium text-[#64748B]">Status</th>
+                      <th className="text-left px-5 py-3 font-medium text-[#64748B]">Link</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {billHistory.map((bill) => (
+                      <tr key={bill.id} className="border-b border-neutral-50 hover:bg-neutral-50/50">
+                        <td className="px-5 py-3 text-[#64748B]">{formatDate(bill.created_at)}</td>
+                        <td className="px-5 py-3 text-[#1E293B]">{bill.description || '\u2014'}</td>
+                        <td className="px-5 py-3 font-medium text-[#1E293B]">{formatCurrency(bill.amount)}</td>
+                        <td className="px-5 py-3">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${BILL_STATUS_COLORS[bill.status] || 'bg-neutral-100 text-neutral-600'}`}>
+                            {bill.status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          {bill.billplz_url && (
+                            <a
+                              href={bill.billplz_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-[#1978E5] hover:underline"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              View
+                            </a>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-[#1E293B]">Subscription Management</h1>
@@ -261,12 +483,13 @@ export default function SubscriptionManagement() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard icon={CheckCircle} label="Total Active" value={stats.totalActive} color="green" loading={loading} />
         <StatCard icon={Zap} label="Free Plans" value={stats.totalFree} color="slate" loading={loading} />
         <StatCard icon={Users} label="Team Plans" value={stats.totalTeam} color="blue" loading={loading} />
         <StatCard icon={Building2} label="Business Plans" value={stats.totalBusiness} color="purple" loading={loading} />
         <StatCard icon={TrendingUp} label="MRR" value={formatCurrency(stats.mrr)} color="amber" loading={loading} />
+        <StatCard icon={DollarSign} label="Total Revenue" value={formatCurrency(totalRevenue)} color="green" loading={loading} />
       </div>
 
       {/* Company Subscriptions Table */}
@@ -334,6 +557,28 @@ export default function SubscriptionManagement() {
                               <option key={p.id} value={p.id}>{p.name}</option>
                             ))}
                           </select>
+                          {/* Bill */}
+                          {plan.slug !== 'free' && (plan.monthly_price || 0) > 0 && (
+                            <button
+                              onClick={() => {
+                                setBillPlanId(company.subscription_plan_id)
+                                setBillCycle(company.billing_cycle || 'monthly')
+                                setBillingModal(company)
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-[#7C3AED] bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+                            >
+                              <Receipt className="h-3 w-3" />
+                              Bill
+                            </button>
+                          )}
+                          {/* History */}
+                          <button
+                            onClick={() => loadBillingHistory(company.id)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-[#64748B] bg-neutral-50 rounded-lg hover:bg-neutral-100 transition-colors"
+                          >
+                            <History className="h-3 w-3" />
+                            History
+                          </button>
                           {/* Cancel */}
                           {company.subscription_status === 'active' && (
                             cancelConfirm === company.id ? (

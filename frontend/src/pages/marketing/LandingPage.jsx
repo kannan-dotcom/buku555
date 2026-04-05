@@ -104,7 +104,7 @@ const features = [
 const stats = [
   { value: '90%', label: 'Time Saved', sub: 'on data entry', icon: Zap },
   { value: '< 2 min', label: 'Average', sub: 'receipt processing', icon: Clock },
-  { value: '10+', label: 'Currencies', sub: 'supported', icon: DollarSign },
+  { value: '160+', label: 'Currencies', sub: 'supported', icon: DollarSign },
 ]
 
 const comparisonRows = [

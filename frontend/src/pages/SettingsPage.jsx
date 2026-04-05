@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Settings, User, Globe, Bell, Save, Building2, Pencil } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Settings, User, Globe, Bell, Save, Building2, Pencil, CreditCard } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import Card, { CardTitle, CardDescription } from '../components/ui/Card'
@@ -42,6 +42,18 @@ export default function SettingsPage() {
   const [editingCompanyName, setEditingCompanyName] = useState(false)
   const [companyNameDraft, setCompanyNameDraft] = useState(company?.name || '')
   const [savingCompany, setSavingCompany] = useState(false)
+  const [subscriptionPlan, setSubscriptionPlan] = useState(null)
+
+  useEffect(() => {
+    if (company?.subscription_plan_id) {
+      supabase
+        .from('subscription_plans')
+        .select('*')
+        .eq('id', company.subscription_plan_id)
+        .single()
+        .then(({ data }) => setSubscriptionPlan(data))
+    }
+  }, [company?.subscription_plan_id])
 
   const handleSave = async () => {
     setSaving(true)
@@ -160,6 +172,61 @@ export default function SettingsPage() {
                 <p className="text-sm text-neutral-800 py-2">{formatRole(companyRole)}</p>
               </div>
             </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Subscription & Billing */}
+      {company && (
+        <Card>
+          <div className="flex items-center gap-3 mb-6">
+            <CreditCard className="h-5 w-5 text-primary-500" />
+            <div>
+              <CardTitle>Subscription & Billing</CardTitle>
+              <CardDescription>Your current plan and billing information</CardDescription>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Current Plan</label>
+                <p className="text-sm text-neutral-800 py-2 font-semibold">
+                  {subscriptionPlan?.name || 'Free'}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Status</label>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  company.subscription_status === 'active' ? 'bg-green-100 text-green-700' :
+                  company.subscription_status === 'past_due' ? 'bg-yellow-100 text-yellow-700' :
+                  company.subscription_status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                  'bg-neutral-100 text-neutral-600'
+                }`}>
+                  {(company.subscription_status || 'active').replace('_', ' ')}
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Billing Cycle</label>
+                <p className="text-sm text-neutral-800 py-2 capitalize">{company.billing_cycle || 'Monthly'}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Current Period Ends</label>
+                <p className="text-sm text-neutral-800 py-2">
+                  {company.subscription_period_end
+                    ? new Date(company.subscription_period_end).toLocaleDateString('en-MY', {
+                        year: 'numeric', month: 'long', day: 'numeric'
+                      })
+                    : 'No end date'}
+                </p>
+              </div>
+            </div>
+            {company.subscription_status === 'past_due' && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                Your subscription payment is overdue. Please check your email for the payment link or contact support.
+              </div>
+            )}
           </div>
         </Card>
       )}

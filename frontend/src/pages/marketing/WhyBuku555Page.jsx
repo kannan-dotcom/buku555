@@ -64,7 +64,7 @@ const comparisonData = [
   {
     feature: 'Multi-Currency',
     bookkeeper: 'Extra charges',
-    buku555: 'Built-in, 10+ currencies',
+    buku555: 'Built-in, 160+ currencies',
     buku555Highlight: true,
   },
 ]
