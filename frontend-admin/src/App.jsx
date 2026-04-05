@@ -3,7 +3,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth'
 import { ToastProvider } from './components/ui/Toast'
 import AdminLayout from './components/layout/AdminLayout'
 import { PageLoader } from './components/ui/LoadingSpinner'
-import { MAIN_APP_URL } from './lib/constants'
+import { MAIN_APP_URL, ALLOWED_ADMIN_EMAILS } from './lib/constants'
 
 import AdminLoginPage from './pages/auth/AdminLoginPage'
 import BackOfficeDashboard from './pages/admin/BackOfficeDashboard'
@@ -12,11 +12,16 @@ import AccountantApprovals from './pages/admin/AccountantApprovals'
 import CompanyApprovals from './pages/admin/CompanyApprovals'
 import SubscriptionManagement from './pages/admin/SubscriptionManagement'
 
+function isAllowedAdmin(profile, user) {
+  const email = profile?.email || user?.email || ''
+  return profile?.role === 'admin' && ALLOWED_ADMIN_EMAILS.includes(email.toLowerCase())
+}
+
 function AdminRoute({ children }) {
-  const { isAuthenticated, profile, loading } = useAuth()
+  const { isAuthenticated, profile, loading, user } = useAuth()
   if (loading) return <PageLoader />
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (profile?.role !== 'admin') {
+  if (!isAllowedAdmin(profile, user)) {
     window.location.href = `${MAIN_APP_URL}/dashboard`
     return <PageLoader />
   }
@@ -24,12 +29,12 @@ function AdminRoute({ children }) {
 }
 
 function PublicRoute({ children }) {
-  const { isAuthenticated, profile, loading } = useAuth()
+  const { isAuthenticated, profile, loading, user } = useAuth()
   if (loading) return <PageLoader />
-  if (isAuthenticated && profile?.role === 'admin') {
+  if (isAuthenticated && isAllowedAdmin(profile, user)) {
     return <Navigate to="/dashboard" replace />
   }
-  if (isAuthenticated && profile?.role !== 'admin') {
+  if (isAuthenticated && !isAllowedAdmin(profile, user)) {
     window.location.href = `${MAIN_APP_URL}/dashboard`
     return <PageLoader />
   }

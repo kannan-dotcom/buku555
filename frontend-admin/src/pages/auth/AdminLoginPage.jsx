@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { Shield } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import Button from '../../components/ui/Button'
-import { APP_NAME, APP_TAGLINE } from '../../lib/constants'
+import { APP_NAME, APP_TAGLINE, ALLOWED_ADMIN_EMAILS } from '../../lib/constants'
 
 export default function AdminLoginPage() {
   const { signInWithGoogle } = useAuth()
@@ -59,9 +60,22 @@ export default function AdminLoginPage() {
             Continue with Google
           </Button>
 
-          <p className="text-center text-xs text-neutral-400 mt-6 leading-relaxed">
-            Access restricted to authorized administrators.
-            Contact your system administrator if you need access.
+          {/* Authorized emails */}
+          <div className="mt-6 p-3 rounded-xl bg-neutral-50 border border-neutral-100">
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="h-3.5 w-3.5 text-neutral-400" />
+              <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Authorized accounts</span>
+            </div>
+            <div className="space-y-1">
+              {ALLOWED_ADMIN_EMAILS.map((email) => (
+                <p key={email} className="text-xs text-neutral-600 font-mono">{email}</p>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-center text-xs text-neutral-400 mt-5 leading-relaxed">
+            Only the accounts listed above can access the back office.
+            Contact your system administrator to request access.
           </p>
         </div>
       </div>
