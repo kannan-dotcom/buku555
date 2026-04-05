@@ -7,6 +7,9 @@ import { PageLoader } from './components/ui/LoadingSpinner'
 
 // Auth pages
 import LoginPage from './pages/auth/LoginPage'
+import CompanyRegistrationPage from './pages/auth/CompanyRegistrationPage'
+import RegistrationPendingPage from './pages/auth/RegistrationPendingPage'
+import AcceptInvitePage from './pages/auth/AcceptInvitePage'
 
 // Public legal pages
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
@@ -33,18 +36,38 @@ import FinancialStatementsPage from './pages/FinancialStatementsPage'
 import ReferencePage from './pages/ReferencePage'
 import SettingsPage from './pages/SettingsPage'
 import GDriveSetupPage from './pages/GDriveSetupPage'
+import TeamManagementPage from './pages/TeamManagementPage'
 
+// Protected route: requires auth + company membership
 function ProtectedRoute({ children }) {
+  const { isAuthenticated, hasCompany, registrationStatus, pendingInvitation, loading } = useAuth()
+  if (loading) return <PageLoader />
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+
+  // Authenticated but no company — redirect to appropriate onboarding
+  if (!hasCompany) {
+    if (registrationStatus === 'pending') return <Navigate to="/registration-pending" replace />
+    if (pendingInvitation) return <Navigate to={`/accept-invite/${pendingInvitation.token}`} replace />
+    return <Navigate to="/register-company" replace />
+  }
+
+  return children
+}
+
+// Authenticated route: requires auth only (no company required)
+function AuthenticatedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
   if (loading) return <PageLoader />
   if (!isAuthenticated) return <Navigate to="/login" replace />
   return children
 }
 
+// Public route: redirect to dashboard if already authenticated with company
 function PublicRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, hasCompany, loading } = useAuth()
   if (loading) return <PageLoader />
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />
+  if (isAuthenticated && hasCompany) return <Navigate to="/dashboard" replace />
+  if (isAuthenticated && !hasCompany) return <Navigate to="/register-company" replace />
   return children
 }
 
@@ -76,7 +99,12 @@ function AppRoutes() {
       {/* Google OAuth callback (from GDrive reconnect) */}
       <Route path="/auth/google/callback" element={<Navigate to="/gdrive-setup" replace />} />
 
-      {/* Protected app routes */}
+      {/* Company onboarding routes (authenticated, no company required) */}
+      <Route path="/register-company" element={<AuthenticatedRoute><CompanyRegistrationPage /></AuthenticatedRoute>} />
+      <Route path="/registration-pending" element={<AuthenticatedRoute><RegistrationPendingPage /></AuthenticatedRoute>} />
+      <Route path="/accept-invite/:token" element={<AuthenticatedRoute><AcceptInvitePage /></AuthenticatedRoute>} />
+
+      {/* Protected app routes (requires auth + company) */}
       <Route
         element={
           <ProtectedRoute>
@@ -96,6 +124,7 @@ function AppRoutes() {
         <Route path="/reference" element={<ReferencePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/gdrive-setup" element={<GDriveSetupPage />} />
+        <Route path="/team" element={<TeamManagementPage />} />
       </Route>
 
       {/* Redirect old admin routes to back office subdomain */}

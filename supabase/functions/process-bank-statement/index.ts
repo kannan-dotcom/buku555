@@ -52,6 +52,7 @@ serve(async (req) => {
 Return a JSON object with:
 - bank_name: string
 - account_number: string
+- currency: string (ISO 4217 currency code, e.g., "MYR", "USD", "SGD". Detect from the statement header, currency symbols, or bank country)
 - statement_period: string (e.g., "March 2025")
 - statement_month: string (YYYY-MM format)
 - opening_balance: number
@@ -66,7 +67,8 @@ Return a JSON object with:
   - balance: number (running balance after transaction)
   - transaction_type: "debit" or "credit"
 
-Extract EVERY transaction visible. Do not skip any rows.`
+Extract EVERY transaction visible. Do not skip any rows.
+Detect the currency from the statement - look for currency symbols (RM, $, £, €, ¥, etc.), currency codes, or infer from the bank's country.`
           },
           {
             role: "user",
@@ -87,16 +89,19 @@ Extract EVERY transaction visible. Do not skip any rows.`
     const aiResult = await openaiResponse.json()
     const parsed = JSON.parse(aiResult.choices[0].message.content)
 
-    // Get user_id from document
+    // Get user_id and company_id from document
     const { data: doc } = await supabase
       .from("documents")
-      .select("user_id")
+      .select("user_id, company_id")
       .eq("id", documentId)
       .single()
+
+    const statementCurrency = parsed.currency || "MYR"
 
     // Bulk insert transactions
     const transactions = (parsed.transactions || []).map((txn: any) => ({
       user_id: doc.user_id,
+      company_id: doc.company_id,
       document_id: documentId,
       transaction_date: txn.date,
       value_date: txn.value_date,
@@ -109,6 +114,7 @@ Extract EVERY transaction visible. Do not skip any rows.`
       bank_name: parsed.bank_name,
       account_number: parsed.account_number,
       statement_month: parsed.statement_month,
+      currency: statementCurrency,
       reconciliation_status: "unmatched",
     }))
 

@@ -85,12 +85,24 @@ export default function SubscriptionManagement() {
   const loadSubscriptions = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('user_subscriptions')
-        .select('*, profiles(*), subscription_plans(*)')
+        .from('companies')
+        .select('*, subscription_plans(*)')
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setSubscriptions(data || [])
+
+      // Fetch member counts for each company
+      const companiesWithCounts = await Promise.all(
+        (data || []).map(async (company) => {
+          const { count } = await supabase
+            .from('company_members')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', company.id)
+          return { ...company, member_count: count || 0 }
+        })
+      )
+
+      setSubscriptions(companiesWithCounts)
     } catch (err) {
       console.error('Failed to load subscriptions:', err)
     }
@@ -112,21 +124,21 @@ export default function SubscriptionManagement() {
 
   const calculateStats = useCallback(async () => {
     try {
-      const [activeRes, allSubsRes] = await Promise.all([
-        supabase.from('user_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-        supabase.from('user_subscriptions').select('*, subscription_plans(*)').eq('status', 'active'),
+      const [activeRes, allCompaniesRes] = await Promise.all([
+        supabase.from('companies').select('id', { count: 'exact', head: true }).eq('subscription_status', 'active'),
+        supabase.from('companies').select('*, subscription_plans(*)').eq('subscription_status', 'active'),
       ])
 
-      const subs = allSubsRes.data || []
+      const companies = allCompaniesRes.data || []
       let totalFree = 0
       let totalTeam = 0
       let totalBusiness = 0
       let mrr = 0
 
-      subs.forEach((sub) => {
-        const planSlug = sub.subscription_plans?.slug || ''
-        const monthlyPrice = sub.subscription_plans?.monthly_price || 0
-        const annualPrice = sub.subscription_plans?.annual_price || 0
+      companies.forEach((company) => {
+        const planSlug = company.subscription_plans?.slug || ''
+        const monthlyPrice = company.subscription_plans?.monthly_price || 0
+        const annualPrice = company.subscription_plans?.annual_price || 0
 
         if (planSlug === 'free' || monthlyPrice === 0) {
           totalFree++
@@ -137,7 +149,7 @@ export default function SubscriptionManagement() {
         }
 
         // MRR calculation
-        if (sub.billing_cycle === 'annual' && annualPrice > 0) {
+        if (company.billing_cycle === 'annual' && annualPrice > 0) {
           mrr += annualPrice / 12
         } else if (monthlyPrice > 0) {
           mrr += monthlyPrice
@@ -165,13 +177,13 @@ export default function SubscriptionManagement() {
     loadAll()
   }, [loadSubscriptions, loadPlans, calculateStats])
 
-  const handleChangePlan = async (subscriptionId, newPlanId) => {
-    setChangingPlan(subscriptionId)
+  const handleChangePlan = async (companyId, newPlanId) => {
+    setChangingPlan(companyId)
     try {
       const { error } = await supabase
-        .from('user_subscriptions')
-        .update({ plan_id: newPlanId })
-        .eq('id', subscriptionId)
+        .from('companies')
+        .update({ subscription_plan_id: newPlanId })
+        .eq('id', companyId)
       if (error) throw error
       await Promise.all([loadSubscriptions(), calculateStats()])
     } catch (err) {
@@ -181,13 +193,13 @@ export default function SubscriptionManagement() {
     }
   }
 
-  const handleCancelSubscription = async (subscriptionId) => {
-    setChangingPlan(subscriptionId)
+  const handleCancelSubscription = async (companyId) => {
+    setChangingPlan(companyId)
     try {
       const { error } = await supabase
-        .from('user_subscriptions')
-        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-        .eq('id', subscriptionId)
+        .from('companies')
+        .update({ subscription_status: 'cancelled' })
+        .eq('id', companyId)
       if (error) throw error
       await Promise.all([loadSubscriptions(), calculateStats()])
       setCancelConfirm(null)
@@ -245,7 +257,7 @@ export default function SubscriptionManagement() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-[#1E293B]">Subscription Management</h1>
-        <p className="text-[#64748B] mt-1">Manage user subscriptions and pricing plans</p>
+        <p className="text-[#64748B] mt-1">Manage company subscriptions and pricing plans</p>
       </div>
 
       {/* Stats Cards */}
@@ -257,11 +269,11 @@ export default function SubscriptionManagement() {
         <StatCard icon={TrendingUp} label="MRR" value={formatCurrency(stats.mrr)} color="amber" loading={loading} />
       </div>
 
-      {/* Users / Subscriptions Table */}
+      {/* Company Subscriptions Table */}
       <div className="bg-white rounded-xl border border-neutral-200 shadow-sm">
         <div className="px-5 py-4 border-b border-neutral-100">
-          <h2 className="text-lg font-semibold text-[#1E293B]">User Subscriptions</h2>
-          <p className="text-sm text-[#64748B] mt-0.5">All user subscription records</p>
+          <h2 className="text-lg font-semibold text-[#1E293B]">Company Subscriptions</h2>
+          <p className="text-sm text-[#64748B] mt-0.5">All company subscription records</p>
         </div>
         {loading ? (
           <div className="flex items-center justify-center py-16">
@@ -277,23 +289,22 @@ export default function SubscriptionManagement() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-neutral-100 bg-neutral-50/50">
-                  <th className="text-left px-5 py-3 font-medium text-[#64748B]">User</th>
-                  <th className="text-left px-5 py-3 font-medium text-[#64748B] hidden md:table-cell">Email</th>
+                  <th className="text-left px-5 py-3 font-medium text-[#64748B]">Company</th>
+                  <th className="text-left px-5 py-3 font-medium text-[#64748B] hidden md:table-cell">Members</th>
                   <th className="text-left px-5 py-3 font-medium text-[#64748B]">Plan</th>
                   <th className="text-left px-5 py-3 font-medium text-[#64748B] hidden lg:table-cell">Billing</th>
                   <th className="text-left px-5 py-3 font-medium text-[#64748B]">Status</th>
-                  <th className="text-left px-5 py-3 font-medium text-[#64748B] hidden sm:table-cell">Start Date</th>
+                  <th className="text-left px-5 py-3 font-medium text-[#64748B] hidden sm:table-cell">Created</th>
                   <th className="text-right px-5 py-3 font-medium text-[#64748B]">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {subscriptions.map((sub) => {
-                  const profile = sub.profiles || {}
-                  const plan = sub.subscription_plans || {}
+                {subscriptions.map((company) => {
+                  const plan = company.subscription_plans || {}
                   return (
-                    <tr key={sub.id} className="border-b border-neutral-50 hover:bg-neutral-50/50 transition-colors">
-                      <td className="px-5 py-3 font-medium text-[#1E293B]">{profile.full_name || '\u2014'}</td>
-                      <td className="px-5 py-3 text-[#64748B] hidden md:table-cell">{profile.email || '\u2014'}</td>
+                    <tr key={company.id} className="border-b border-neutral-50 hover:bg-neutral-50/50 transition-colors">
+                      <td className="px-5 py-3 font-medium text-[#1E293B]">{company.name || '\u2014'}</td>
+                      <td className="px-5 py-3 text-[#64748B] hidden md:table-cell">{company.member_count}</td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
                           {(() => {
@@ -303,20 +314,20 @@ export default function SubscriptionManagement() {
                           <span className="text-[#1E293B] font-medium">{plan.name || '\u2014'}</span>
                         </div>
                       </td>
-                      <td className="px-5 py-3 text-[#64748B] hidden lg:table-cell capitalize">{sub.billing_cycle || '\u2014'}</td>
+                      <td className="px-5 py-3 text-[#64748B] hidden lg:table-cell capitalize">{company.billing_cycle || '\u2014'}</td>
                       <td className="px-5 py-3">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[sub.status] || 'bg-neutral-100 text-neutral-600'}`}>
-                          {sub.status || '\u2014'}
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[company.subscription_status] || 'bg-neutral-100 text-neutral-600'}`}>
+                          {company.subscription_status || '\u2014'}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-[#64748B] hidden sm:table-cell">{formatDate(sub.start_date || sub.created_at)}</td>
+                      <td className="px-5 py-3 text-[#64748B] hidden sm:table-cell">{formatDate(company.created_at)}</td>
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-2">
                           {/* Change Plan Dropdown */}
                           <select
-                            value={sub.plan_id || ''}
-                            onChange={(e) => handleChangePlan(sub.id, e.target.value)}
-                            disabled={changingPlan === sub.id || sub.status === 'cancelled'}
+                            value={company.subscription_plan_id || ''}
+                            onChange={(e) => handleChangePlan(company.id, e.target.value)}
+                            disabled={changingPlan === company.id || company.subscription_status === 'cancelled'}
                             className="text-xs px-2 py-1.5 border border-neutral-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#1978E5]/20 focus:border-[#1978E5] disabled:opacity-50 cursor-pointer"
                           >
                             {plans.map((p) => (
@@ -324,12 +335,12 @@ export default function SubscriptionManagement() {
                             ))}
                           </select>
                           {/* Cancel */}
-                          {sub.status === 'active' && (
-                            cancelConfirm === sub.id ? (
+                          {company.subscription_status === 'active' && (
+                            cancelConfirm === company.id ? (
                               <div className="flex items-center gap-1">
                                 <button
-                                  onClick={() => handleCancelSubscription(sub.id)}
-                                  disabled={changingPlan === sub.id}
+                                  onClick={() => handleCancelSubscription(company.id)}
+                                  disabled={changingPlan === company.id}
                                   className="px-2 py-1 text-xs font-medium text-white bg-[#EF4444] rounded-md hover:bg-red-600 disabled:opacity-50"
                                 >
                                   Confirm
@@ -343,7 +354,7 @@ export default function SubscriptionManagement() {
                               </div>
                             ) : (
                               <button
-                                onClick={() => setCancelConfirm(sub.id)}
+                                onClick={() => setCancelConfirm(company.id)}
                                 className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-[#EF4444] bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
                               >
                                 <XCircle className="h-3 w-3" />
@@ -351,7 +362,7 @@ export default function SubscriptionManagement() {
                               </button>
                             )
                           )}
-                          {changingPlan === sub.id && (
+                          {changingPlan === company.id && (
                             <Loader2 className="h-4 w-4 animate-spin text-[#1978E5]" />
                           )}
                         </div>

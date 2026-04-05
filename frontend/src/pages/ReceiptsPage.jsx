@@ -8,11 +8,13 @@ import FileUpload from '../components/ui/FileUpload'
 import Modal from '../components/ui/Modal'
 import StatusBadge from '../components/ui/StatusBadge'
 import { Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell, EmptyState } from '../components/ui/Table'
+import Select from '../components/ui/Select'
 import { formatCurrency, formatDate } from '../lib/utils'
+import { CURRENCIES } from '../lib/constants'
 import { useToast } from '../components/ui/Toast'
 
 export default function ReceiptsPage() {
-  const { profile } = useAuth()
+  const { profile, company, canEditData, canDeleteData } = useAuth()
   const toast = useToast()
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
@@ -22,15 +24,15 @@ export default function ReceiptsPage() {
   const [files, setFiles] = useState([])
 
   useEffect(() => {
-    if (profile) loadEntries()
-  }, [profile])
+    if (profile && company) loadEntries()
+  }, [profile, company])
 
   const loadEntries = async () => {
     setLoading(true)
     const { data, error } = await supabase
       .from('ledger_entries')
       .select('*, documents(*)')
-      .eq('user_id', profile.id)
+      .eq('company_id', company.id)
       .eq('entry_type', 'expense')
       .order('entry_date', { ascending: false })
     if (!error) setEntries(data || [])
@@ -54,6 +56,7 @@ export default function ReceiptsPage() {
           .from('documents')
           .insert({
             user_id: profile.id,
+            company_id: company.id,
             folder_type: 'receipts',
             file_name: file.name,
             file_type: file.type,
@@ -164,9 +167,9 @@ export default function ReceiptsPage() {
                 />
               </div>
               <div>
-                <label className="label">Currency</label>
-                <input
-                  className="input"
+                <Select
+                  label="Currency"
+                  options={CURRENCIES}
                   value={editEntry.currency || 'MYR'}
                   onChange={(e) => setEditEntry({ ...editEntry, currency: e.target.value })}
                 />
@@ -275,13 +278,15 @@ export default function ReceiptsPage() {
                   <TableCell><StatusBadge status={entry.status} /></TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setEditEntry({ ...entry })}
-                        className="p-1.5 rounded text-neutral-400 hover:text-primary-500 hover:bg-neutral-100"
-                        title="Edit"
-                      >
-                        <Edit3 className="h-4 w-4" />
-                      </button>
+                      {canEditData && (
+                        <button
+                          onClick={() => setEditEntry({ ...entry })}
+                          className="p-1.5 rounded text-neutral-400 hover:text-primary-500 hover:bg-neutral-100"
+                          title="Edit"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

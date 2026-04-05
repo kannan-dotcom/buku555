@@ -10,21 +10,21 @@ import { formatCurrency, formatDate } from '../lib/utils'
 import { ENTRY_TYPES, LEDGER_STATUS } from '../lib/constants'
 
 export default function LedgerPage() {
-  const { profile } = useAuth()
+  const { profile, company, canEditData, canDeleteData } = useAuth()
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState({ type: 'all', status: 'all' })
 
   useEffect(() => {
-    if (profile) loadEntries()
-  }, [profile, filter])
+    if (profile && company) loadEntries()
+  }, [profile, company, filter])
 
   const loadEntries = async () => {
     setLoading(true)
     let query = supabase
       .from('ledger_entries')
       .select('*')
-      .eq('user_id', profile.id)
+      .eq('company_id', company.id)
       .order('entry_date', { ascending: false })
 
     if (filter.type !== 'all') query = query.eq('entry_type', filter.type)

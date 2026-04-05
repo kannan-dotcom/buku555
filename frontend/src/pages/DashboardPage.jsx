@@ -50,7 +50,7 @@ function StatCard({ icon: Icon, label, value, subValue, trend, color = 'primary'
 }
 
 export default function DashboardPage() {
-  const { profile, isGDriveConnected } = useAuth()
+  const { profile, company, isGDriveConnected } = useAuth()
   const navigate = useNavigate()
   const [stats, setStats] = useState({
     totalExpenses: 0,
@@ -63,19 +63,19 @@ export default function DashboardPage() {
   })
 
   useEffect(() => {
-    if (!profile) return
+    if (!profile || !company) return
     loadDashboardData()
-  }, [profile])
+  }, [profile, company])
 
   const loadDashboardData = async () => {
     try {
       const [expensesRes, incomeRes, pendingRes, unreconciledRes, clientsRes, recentRes] = await Promise.all([
-        supabase.from('ledger_entries').select('total_amount').eq('user_id', profile.id).eq('entry_type', 'expense'),
-        supabase.from('ledger_entries').select('total_amount').eq('user_id', profile.id).eq('entry_type', 'income'),
-        supabase.from('ledger_entries').select('id', { count: 'exact' }).eq('user_id', profile.id).eq('status', 'update_needed'),
-        supabase.from('bank_transactions').select('id', { count: 'exact' }).eq('user_id', profile.id).eq('reconciliation_status', 'unmatched'),
-        supabase.from('clients').select('id', { count: 'exact' }).eq('user_id', profile.id),
-        supabase.from('ledger_entries').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(5),
+        supabase.from('ledger_entries').select('total_amount').eq('company_id', company.id).eq('entry_type', 'expense'),
+        supabase.from('ledger_entries').select('total_amount').eq('company_id', company.id).eq('entry_type', 'income'),
+        supabase.from('ledger_entries').select('id', { count: 'exact' }).eq('company_id', company.id).eq('status', 'update_needed'),
+        supabase.from('bank_transactions').select('id', { count: 'exact' }).eq('company_id', company.id).eq('reconciliation_status', 'unmatched'),
+        supabase.from('clients').select('id', { count: 'exact' }).eq('company_id', company.id),
+        supabase.from('ledger_entries').select('*').eq('company_id', company.id).order('created_at', { ascending: false }).limit(5),
       ])
 
       const totalExpenses = (expensesRes.data || []).reduce((sum, e) => sum + Number(e.total_amount || 0), 0)

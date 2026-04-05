@@ -12,7 +12,7 @@ import { formatCurrency, formatDate } from '../lib/utils'
 import { useToast } from '../components/ui/Toast'
 
 export default function ReconciliationPage() {
-  const { profile, updateProfile } = useAuth()
+  const { profile, company, canEditData, updateProfile } = useAuth()
   const toast = useToast()
   const [suspenseItems, setSuspenseItems] = useState([])
   const [matchedItems, setMatchedItems] = useState([])
@@ -23,8 +23,8 @@ export default function ReconciliationPage() {
   const [stats, setStats] = useState({ matched: 0, unmatched: 0, incomplete: 0 })
 
   useEffect(() => {
-    if (profile) loadData()
-  }, [profile])
+    if (profile && company) loadData()
+  }, [profile, company])
 
   const loadData = async () => {
     setLoading(true)
@@ -32,20 +32,20 @@ export default function ReconciliationPage() {
       supabase
         .from('bank_transactions')
         .select('*')
-        .eq('user_id', profile.id)
+        .eq('company_id', company.id)
         .in('reconciliation_status', ['unmatched', 'incomplete'])
         .order('transaction_date', { ascending: false }),
       supabase
         .from('bank_transactions')
         .select('*, ledger_entries:matched_ledger_entry_id(*)')
-        .eq('user_id', profile.id)
+        .eq('company_id', company.id)
         .eq('reconciliation_status', 'matched')
         .order('transaction_date', { ascending: false })
         .limit(20),
       supabase
         .from('bank_transactions')
         .select('reconciliation_status')
-        .eq('user_id', profile.id),
+        .eq('company_id', company.id),
     ])
 
     setSuspenseItems(suspenseRes.data || [])
@@ -92,14 +92,16 @@ export default function ReconciliationPage() {
           <h1 className="text-2xl font-bold text-neutral-800">Reconciliation</h1>
           <p className="text-neutral-500 mt-1">Match bank transactions with ledger entries</p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="secondary" icon={DollarSign} onClick={() => setShowCashModal(true)}>
-            Cash in Hand
-          </Button>
-          <Button icon={Play} onClick={runReconciliation} loading={reconciling}>
-            Run Reconciliation
-          </Button>
-        </div>
+        {canEditData && (
+          <div className="flex gap-3">
+            <Button variant="secondary" icon={DollarSign} onClick={() => setShowCashModal(true)}>
+              Cash in Hand
+            </Button>
+            <Button icon={Play} onClick={runReconciliation} loading={reconciling}>
+              Run Reconciliation
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Cash in hand modal */}

@@ -12,7 +12,7 @@ import { formatCurrency, formatDate } from '../lib/utils'
 import { useToast } from '../components/ui/Toast'
 
 export default function BankStatementsPage() {
-  const { profile } = useAuth()
+  const { profile, company, canEditData, canDeleteData } = useAuth()
   const toast = useToast()
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -21,15 +21,15 @@ export default function BankStatementsPage() {
   const [files, setFiles] = useState([])
 
   useEffect(() => {
-    if (profile) loadTransactions()
-  }, [profile])
+    if (profile && company) loadTransactions()
+  }, [profile, company])
 
   const loadTransactions = async () => {
     setLoading(true)
     const { data, error } = await supabase
       .from('bank_transactions')
       .select('*')
-      .eq('user_id', profile.id)
+      .eq('company_id', company.id)
       .order('transaction_date', { ascending: false })
     if (!error) setTransactions(data || [])
     setLoading(false)
@@ -50,6 +50,7 @@ export default function BankStatementsPage() {
           .from('documents')
           .insert({
             user_id: profile.id,
+            company_id: company.id,
             folder_type: 'bank_statements',
             file_name: file.name,
             file_type: file.type,
@@ -120,6 +121,7 @@ export default function BankStatementsPage() {
                 <TableHeaderCell>Date</TableHeaderCell>
                 <TableHeaderCell>Description</TableHeaderCell>
                 <TableHeaderCell>Reference</TableHeaderCell>
+                <TableHeaderCell>Currency</TableHeaderCell>
                 <TableHeaderCell>Debit</TableHeaderCell>
                 <TableHeaderCell>Credit</TableHeaderCell>
                 <TableHeaderCell>Balance</TableHeaderCell>
@@ -132,13 +134,14 @@ export default function BankStatementsPage() {
                   <TableCell>{formatDate(txn.transaction_date)}</TableCell>
                   <TableCell className="max-w-xs truncate">{txn.description || '—'}</TableCell>
                   <TableCell>{txn.reference_no || '—'}</TableCell>
+                  <TableCell>{txn.currency || 'MYR'}</TableCell>
                   <TableCell className="text-red-500">
-                    {txn.debit_amount > 0 ? formatCurrency(txn.debit_amount) : '—'}
+                    {txn.debit_amount > 0 ? formatCurrency(txn.debit_amount, txn.currency) : '—'}
                   </TableCell>
                   <TableCell className="text-green-500">
-                    {txn.credit_amount > 0 ? formatCurrency(txn.credit_amount) : '—'}
+                    {txn.credit_amount > 0 ? formatCurrency(txn.credit_amount, txn.currency) : '—'}
                   </TableCell>
-                  <TableCell>{formatCurrency(txn.balance)}</TableCell>
+                  <TableCell>{formatCurrency(txn.balance, txn.currency)}</TableCell>
                   <TableCell><StatusBadge status={txn.reconciliation_status} /></TableCell>
                 </TableRow>
               ))}

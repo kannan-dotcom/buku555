@@ -14,7 +14,7 @@ import { useToast } from '../components/ui/Toast'
 import { GDRIVE_FOLDER_NAMES } from '../lib/constants'
 
 export default function GDriveSetupPage() {
-  const { profile, isGDriveConnected, updateProfile } = useAuth()
+  const { user, profile, company, isGDriveConnected, updateProfile } = useAuth()
   const toast = useToast()
   const [searchParams] = useSearchParams()
   const [folders, setFolders] = useState([])
@@ -61,6 +61,7 @@ export default function GDriveSetupPage() {
       })
 
       const folderRecords = Object.entries(folderIds).map(([type, gdriveId]) => ({
+        company_id: company.id,
         user_id: profile.id,
         folder_type: type,
         gdrive_folder_id: gdriveId,
@@ -94,6 +95,7 @@ export default function GDriveSetupPage() {
 
       // Save folder records
       const folderRecords = Object.entries(folderIds).map(([type, gdriveId]) => ({
+        company_id: company.id,
         user_id: profile.id,
         folder_type: type,
         gdrive_folder_id: gdriveId,
@@ -114,7 +116,7 @@ export default function GDriveSetupPage() {
     const { data } = await supabase
       .from('gdrive_folders')
       .select('*')
-      .eq('user_id', profile.id)
+      .eq('company_id', company.id)
     setFolders(data || [])
   }
 
@@ -132,7 +134,7 @@ export default function GDriveSetupPage() {
         gdrive_root_folder_id: null,
         gsheet_ledger_id: null,
       })
-      await supabase.from('gdrive_folders').delete().eq('user_id', profile.id)
+      await supabase.from('gdrive_folders').delete().eq('company_id', company.id)
       setFolders([])
       toast.success('Disconnected', 'Google Drive has been disconnected')
     } catch (err) {

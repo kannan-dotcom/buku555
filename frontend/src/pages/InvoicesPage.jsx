@@ -13,7 +13,7 @@ import { formatCurrency, formatDate } from '../lib/utils'
 import { useToast } from '../components/ui/Toast'
 
 export default function InvoicesPage() {
-  const { profile } = useAuth()
+  const { profile, company, canEditData, canDeleteData } = useAuth()
   const toast = useToast()
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
@@ -22,15 +22,15 @@ export default function InvoicesPage() {
   const [files, setFiles] = useState([])
 
   useEffect(() => {
-    if (profile) loadInvoices()
-  }, [profile])
+    if (profile && company) loadInvoices()
+  }, [profile, company])
 
   const loadInvoices = async () => {
     setLoading(true)
     const { data, error } = await supabase
       .from('invoices_sent')
       .select('*, clients(*)')
-      .eq('user_id', profile.id)
+      .eq('company_id', company.id)
       .order('invoice_date', { ascending: false })
     if (!error) setInvoices(data || [])
     setLoading(false)
@@ -51,6 +51,7 @@ export default function InvoicesPage() {
           .from('documents')
           .insert({
             user_id: profile.id,
+            company_id: company.id,
             folder_type: 'invoices_sent',
             file_name: file.name,
             file_type: file.type,
@@ -84,9 +85,11 @@ export default function InvoicesPage() {
           <p className="text-neutral-500 mt-1">Manage invoices sent to clients</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="secondary" icon={Upload} onClick={() => setShowUpload(true)}>
-            Upload Invoice
-          </Button>
+          {canEditData && (
+            <Button variant="secondary" icon={Upload} onClick={() => setShowUpload(true)}>
+              Upload Invoice
+            </Button>
+          )}
         </div>
       </div>
 
@@ -110,7 +113,7 @@ export default function InvoicesPage() {
             icon={FileText}
             title="No invoices yet"
             description="Upload invoices sent to your clients"
-            action={<Button icon={Upload} onClick={() => setShowUpload(true)}>Upload Invoice</Button>}
+            action={canEditData ? <Button icon={Upload} onClick={() => setShowUpload(true)}>Upload Invoice</Button> : undefined}
           />
         ) : (
           <Table>

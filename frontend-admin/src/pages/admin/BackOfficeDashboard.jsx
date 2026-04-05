@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  Users, FileCheck, CreditCard, UserCircle,
+  Users, FileCheck, CreditCard, UserCircle, Building2,
   ChevronDown, ChevronRight, Clock, CheckCircle,
   XCircle, AlertCircle, Loader2, RefreshCw,
 } from 'lucide-react'
@@ -58,11 +58,13 @@ export default function BackOfficeDashboard() {
   const [stats, setStats] = useState({
     totalLeads: 0,
     pendingApplications: 0,
+    pendingCompanies: 0,
     activeSubscriptions: 0,
     totalUsers: 0,
   })
   const [recentLeads, setRecentLeads] = useState([])
   const [pendingApps, setPendingApps] = useState([])
+  const [pendingCompanyRegs, setPendingCompanyRegs] = useState([])
   const [expandedLead, setExpandedLead] = useState(null)
   const [actionLoading, setActionLoading] = useState(null)
 
@@ -76,27 +78,33 @@ export default function BackOfficeDashboard() {
       const [
         leadsCountRes,
         pendingAppsCountRes,
+        pendingCompaniesCountRes,
         activeSubsRes,
         usersCountRes,
         recentLeadsRes,
         pendingAppsRes,
+        pendingCompanyRegsRes,
       ] = await Promise.all([
         supabase.from('leads').select('id', { count: 'exact', head: true }),
         supabase.from('accountant_applications').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-        supabase.from('user_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+        supabase.from('company_registrations').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('companies').select('id', { count: 'exact', head: true }).eq('subscription_status', 'active'),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('leads').select('*').order('created_at', { ascending: false }).limit(10),
         supabase.from('accountant_applications').select('*').eq('status', 'pending').order('created_at', { ascending: false }).limit(5),
+        supabase.from('company_registrations').select('*, profiles(full_name, email)').eq('status', 'pending').order('created_at', { ascending: false }).limit(5),
       ])
 
       setStats({
         totalLeads: leadsCountRes.count || 0,
         pendingApplications: pendingAppsCountRes.count || 0,
+        pendingCompanies: pendingCompaniesCountRes.count || 0,
         activeSubscriptions: activeSubsRes.count || 0,
         totalUsers: usersCountRes.count || 0,
       })
       setRecentLeads(recentLeadsRes.data || [])
       setPendingApps(pendingAppsRes.data || [])
+      setPendingCompanyRegs(pendingCompanyRegsRes.data || [])
     } catch (err) {
       console.error('Failed to load back office data:', err)
     } finally {
@@ -162,9 +170,10 @@ export default function BackOfficeDashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard icon={Users} label="Total Leads" value={stats.totalLeads} color="blue" loading={loading} />
         <StatCard icon={FileCheck} label="Pending Applications" value={stats.pendingApplications} color="purple" loading={loading} />
+        <StatCard icon={Building2} label="Pending Companies" value={stats.pendingCompanies} color="purple" loading={loading} />
         <StatCard icon={CreditCard} label="Active Subscriptions" value={stats.activeSubscriptions} color="green" loading={loading} />
         <StatCard icon={UserCircle} label="Total Users" value={stats.totalUsers} color="slate" loading={loading} />
       </div>
@@ -251,6 +260,49 @@ export default function BackOfficeDashboard() {
                       </tr>
                     )}
                   </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Pending Company Registrations */}
+      <div className="bg-white rounded-xl border border-neutral-200 shadow-sm">
+        <div className="px-5 py-4 border-b border-neutral-100">
+          <h2 className="text-lg font-semibold text-[#1E293B]">Pending Company Registrations</h2>
+          <p className="text-sm text-[#64748B] mt-0.5">Company registrations awaiting approval</p>
+        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-neutral-300" />
+          </div>
+        ) : pendingCompanyRegs.length === 0 ? (
+          <div className="text-center py-12 text-[#64748B]">
+            <CheckCircle className="h-10 w-10 mx-auto mb-2 text-green-300" />
+            <p className="text-sm">No pending company registrations</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-neutral-100 bg-neutral-50/50">
+                  <th className="text-left px-5 py-3 font-medium text-[#64748B]">Company</th>
+                  <th className="text-left px-5 py-3 font-medium text-[#64748B] hidden md:table-cell">Type</th>
+                  <th className="text-left px-5 py-3 font-medium text-[#64748B] hidden lg:table-cell">Reg #</th>
+                  <th className="text-left px-5 py-3 font-medium text-[#64748B]">Submitted By</th>
+                  <th className="text-left px-5 py-3 font-medium text-[#64748B] hidden sm:table-cell">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingCompanyRegs.map((reg) => (
+                  <tr key={reg.id} className="border-b border-neutral-50 hover:bg-neutral-50/50 transition-colors">
+                    <td className="px-5 py-3 font-medium text-[#1E293B]">{reg.company_name || '\u2014'}</td>
+                    <td className="px-5 py-3 text-[#64748B] hidden md:table-cell capitalize">{(reg.company_type || '').replace(/_/g, ' ')}</td>
+                    <td className="px-5 py-3 text-[#64748B] hidden lg:table-cell">{reg.registration_number || '\u2014'}</td>
+                    <td className="px-5 py-3 text-[#64748B]">{reg.profiles?.email || '\u2014'}</td>
+                    <td className="px-5 py-3 text-[#64748B] hidden sm:table-cell">{formatDate(reg.created_at)}</td>
+                  </tr>
                 ))}
               </tbody>
             </table>

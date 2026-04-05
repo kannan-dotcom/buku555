@@ -14,7 +14,7 @@ import { formatDate, formatFileSize } from '../lib/utils'
 import { useToast } from '../components/ui/Toast'
 
 export default function CompanyDocsPage() {
-  const { profile } = useAuth()
+  const { profile, company, canEditData, canDeleteData } = useAuth()
   const toast = useToast()
   const [docs, setDocs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -24,15 +24,15 @@ export default function CompanyDocsPage() {
   const [docType, setDocType] = useState('ssm')
 
   useEffect(() => {
-    if (profile) loadDocs()
-  }, [profile])
+    if (profile && company) loadDocs()
+  }, [profile, company])
 
   const loadDocs = async () => {
     setLoading(true)
     const { data, error } = await supabase
       .from('company_documents')
       .select('*, documents(*)')
-      .eq('user_id', profile.id)
+      .eq('company_id', company.id)
       .order('created_at', { ascending: false })
     if (!error) setDocs(data || [])
     setLoading(false)
@@ -53,6 +53,7 @@ export default function CompanyDocsPage() {
           .from('documents')
           .insert({
             user_id: profile.id,
+            company_id: company.id,
             folder_type: 'company_documents',
             file_name: file.name,
             file_type: file.type,
@@ -66,6 +67,7 @@ export default function CompanyDocsPage() {
           .from('company_documents')
           .insert({
             user_id: profile.id,
+            company_id: company.id,
             document_id: doc.id,
             doc_type: docType,
           })

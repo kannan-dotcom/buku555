@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Users,
   FileCheck,
+  Building2,
   CreditCard,
   ExternalLink,
   X,
@@ -14,6 +15,7 @@ const navigation = [
   { name: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
   { name: 'Lead Management', to: '/leads', icon: Users },
   { name: 'Accountant Approvals', to: '/accountants', icon: FileCheck },
+  { name: 'Company Approvals', to: '/companies', icon: Building2 },
   { name: 'Subscriptions', to: '/subscriptions', icon: CreditCard },
 ]
 

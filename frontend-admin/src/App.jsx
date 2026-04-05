@@ -9,6 +9,7 @@ import AdminLoginPage from './pages/auth/AdminLoginPage'
 import BackOfficeDashboard from './pages/admin/BackOfficeDashboard'
 import LeadManagement from './pages/admin/LeadManagement'
 import AccountantApprovals from './pages/admin/AccountantApprovals'
+import CompanyApprovals from './pages/admin/CompanyApprovals'
 import SubscriptionManagement from './pages/admin/SubscriptionManagement'
 
 function AdminRoute({ children }) {
@@ -44,6 +45,7 @@ function AppRoutes() {
         <Route path="/dashboard" element={<BackOfficeDashboard />} />
         <Route path="/leads" element={<LeadManagement />} />
         <Route path="/accountants" element={<AccountantApprovals />} />
+        <Route path="/companies" element={<CompanyApprovals />} />
         <Route path="/subscriptions" element={<SubscriptionManagement />} />
       </Route>
 

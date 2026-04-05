@@ -11,22 +11,22 @@ import { STATEMENT_TYPES } from '../lib/constants'
 import { useToast } from '../components/ui/Toast'
 
 export default function FinancialStatementsPage() {
-  const { profile } = useAuth()
+  const { profile, company, canEditData, canExport } = useAuth()
   const toast = useToast()
   const [statements, setStatements] = useState([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(null)
 
   useEffect(() => {
-    if (profile) loadStatements()
-  }, [profile])
+    if (profile && company) loadStatements()
+  }, [profile, company])
 
   const loadStatements = async () => {
     setLoading(true)
     const { data, error } = await supabase
       .from('financial_statements')
       .select('*')
-      .eq('user_id', profile.id)
+      .eq('company_id', company.id)
       .order('period_end', { ascending: false })
     if (!error) setStatements(data || [])
     setLoading(false)
@@ -38,6 +38,7 @@ export default function FinancialStatementsPage() {
       const { error } = await supabase.functions.invoke('generate-financial-statement', {
         body: {
           userId: profile.id,
+          companyId: company.id,
           statementType: type,
           periodStart: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],
           periodEnd: new Date().toISOString().split('T')[0],
@@ -77,15 +78,17 @@ export default function FinancialStatementsPage() {
           <Card key={value} className="text-center">
             <BarChart3 className="h-8 w-8 text-primary-500 mx-auto mb-3" />
             <h3 className="text-sm font-semibold text-neutral-700">{typeLabel(value)}</h3>
-            <Button
-              size="sm"
-              variant="secondary"
-              className="mt-3"
-              loading={generating === value}
-              onClick={() => generateStatement(value)}
-            >
-              Generate
-            </Button>
+            {canEditData && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="mt-3"
+                loading={generating === value}
+                onClick={() => generateStatement(value)}
+              >
+                Generate
+              </Button>
+            )}
           </Card>
         ))}
       </div>

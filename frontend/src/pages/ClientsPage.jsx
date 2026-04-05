@@ -16,7 +16,7 @@ const emptyClient = {
 }
 
 export default function ClientsPage() {
-  const { profile } = useAuth()
+  const { profile, company, canEditData, canDeleteData } = useAuth()
   const toast = useToast()
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
@@ -24,15 +24,15 @@ export default function ClientsPage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (profile) loadClients()
-  }, [profile])
+    if (profile && company) loadClients()
+  }, [profile, company])
 
   const loadClients = async () => {
     setLoading(true)
     const { data, error } = await supabase
       .from('clients')
       .select('*')
-      .eq('user_id', profile.id)
+      .eq('company_id', company.id)
       .order('company_name')
     if (!error) setClients(data || [])
     setLoading(false)
@@ -54,7 +54,7 @@ export default function ClientsPage() {
       } else {
         const { error } = await supabase
           .from('clients')
-          .insert({ ...editClient, user_id: profile.id })
+          .insert({ ...editClient, user_id: profile.id, company_id: company.id })
         if (error) throw error
       }
       toast.success('Saved', 'Client has been saved')
@@ -74,9 +74,11 @@ export default function ClientsPage() {
           <h1 className="text-2xl font-bold text-neutral-800">Clients</h1>
           <p className="text-neutral-500 mt-1">Manage your client database</p>
         </div>
-        <Button icon={Plus} onClick={() => setEditClient({ ...emptyClient })}>
-          Add Client
-        </Button>
+        {canEditData && (
+          <Button icon={Plus} onClick={() => setEditClient({ ...emptyClient })}>
+            Add Client
+          </Button>
+        )}
       </div>
 
       <Modal
@@ -162,19 +164,21 @@ export default function ClientsPage() {
             icon={Users}
             title="No clients yet"
             description="Add clients manually or they'll be auto-created from uploaded invoices"
-            action={<Button icon={Plus} onClick={() => setEditClient({ ...emptyClient })}>Add Client</Button>}
+            action={canEditData ? <Button icon={Plus} onClick={() => setEditClient({ ...emptyClient })}>Add Client</Button> : undefined}
           />
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {clients.map((client) => (
             <Card key={client.id} className="relative">
-              <button
-                onClick={() => setEditClient({ ...client })}
-                className="absolute top-4 right-4 p-1.5 rounded text-neutral-400 hover:text-primary-500 hover:bg-neutral-100"
-              >
-                <Edit3 className="h-4 w-4" />
-              </button>
+              {canEditData && (
+                <button
+                  onClick={() => setEditClient({ ...client })}
+                  className="absolute top-4 right-4 p-1.5 rounded text-neutral-400 hover:text-primary-500 hover:bg-neutral-100"
+                >
+                  <Edit3 className="h-4 w-4" />
+                </button>
+              )}
               <div className="flex items-start gap-3">
                 <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-accent-50 text-accent-500">
                   <Building2 className="h-5 w-5" />

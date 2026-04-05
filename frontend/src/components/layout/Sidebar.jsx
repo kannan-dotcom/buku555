@@ -6,6 +6,7 @@ import {
   ArrowLeftRight,
   FileText,
   Users,
+  UsersRound,
   Building2,
   BarChart3,
   BookOpen,
@@ -16,8 +17,9 @@ import {
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { APP_NAME } from '../../lib/constants'
+import { useAuth } from '../../hooks/useAuth'
 
-const navigation = [
+const baseNavigation = [
   { name: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
   { name: 'Receipts', to: '/receipts', icon: Receipt },
   { name: 'Bank Statements', to: '/bank-statements', icon: Landmark },
@@ -36,6 +38,11 @@ const bottomNav = [
 ]
 
 export default function Sidebar({ open, onClose }) {
+  const { canManageUsers } = useAuth()
+  const navigation = [
+    ...baseNavigation,
+    ...(canManageUsers ? [{ name: 'Team', to: '/team', icon: UsersRound }] : []),
+  ]
   return (
     <>
       {open && (

@@ -6,7 +6,56 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [company, setCompany] = useState(null)
+  const [companyRole, setCompanyRole] = useState(null)
+  const [registrationStatus, setRegistrationStatus] = useState(null) // 'none' | 'pending' | 'rejected'
+  const [pendingInvitation, setPendingInvitation] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  const fetchCompanyData = useCallback(async (prof) => {
+    if (prof?.company_id) {
+      const [companyRes, memberRes] = await Promise.all([
+        supabase.from('companies').select('*').eq('id', prof.company_id).single(),
+        supabase.from('company_members').select('*').eq('user_id', prof.id).eq('company_id', prof.company_id).single(),
+      ])
+      setCompany(companyRes.data)
+      setCompanyRole(memberRes.data?.role || null)
+      setRegistrationStatus(null)
+      setPendingInvitation(null)
+    } else {
+      setCompany(null)
+      setCompanyRole(null)
+
+      // Check for pending/rejected registration
+      const { data: regData } = await supabase
+        .from('company_registrations')
+        .select('*')
+        .eq('user_id', prof.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (regData && regData.length > 0) {
+        setRegistrationStatus(regData[0].status) // 'pending' or 'rejected'
+        setPendingInvitation(null)
+      } else {
+        // Check for pending invitation by email
+        const { data: invData } = await supabase
+          .from('company_invitations')
+          .select('*, companies(name)')
+          .eq('email', prof.email)
+          .eq('status', 'pending')
+          .limit(1)
+
+        if (invData && invData.length > 0) {
+          setPendingInvitation(invData[0])
+          setRegistrationStatus(null)
+        } else {
+          setPendingInvitation(null)
+          setRegistrationStatus('none')
+        }
+      }
+    }
+  }, [])
 
   const fetchProfile = useCallback(async (userId) => {
     const { data } = await supabase
@@ -15,14 +64,18 @@ export function AuthProvider({ children }) {
       .eq('id', userId)
       .single()
     setProfile(data)
+    if (data) await fetchCompanyData(data)
     return data
-  }, [])
+  }, [fetchCompanyData])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
-      setLoading(false)
+      if (session?.user) {
+        fetchProfile(session.user.id).then(() => setLoading(false))
+      } else {
+        setLoading(false)
+      }
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -54,6 +107,10 @@ export function AuthProvider({ children }) {
           }
         } else {
           setProfile(null)
+          setCompany(null)
+          setCompanyRole(null)
+          setRegistrationStatus(null)
+          setPendingInvitation(null)
         }
         setLoading(false)
       }
@@ -83,6 +140,10 @@ export function AuthProvider({ children }) {
     if (error) throw error
     setUser(null)
     setProfile(null)
+    setCompany(null)
+    setCompanyRole(null)
+    setRegistrationStatus(null)
+    setPendingInvitation(null)
   }
 
   const updateProfile = async (updates) => {
@@ -95,19 +156,32 @@ export function AuthProvider({ children }) {
       .single()
     if (error) throw error
     setProfile(data)
+    if (updates.company_id) await fetchCompanyData(data)
     return data
   }
 
   const value = {
     user,
     profile,
+    company,
+    companyRole,
+    registrationStatus,
+    pendingInvitation,
     loading,
     signInWithGoogle,
     signOut,
     updateProfile,
     fetchProfile,
     isAuthenticated: !!user,
+    hasCompany: !!profile?.company_id,
     isGDriveConnected: !!profile?.gdrive_connected,
+    // RBAC helpers
+    isOwner: companyRole === 'owner',
+    isCompanyAdmin: companyRole === 'admin' || companyRole === 'owner',
+    canManageUsers: companyRole === 'owner' || companyRole === 'admin',
+    canEditData: ['owner', 'admin', 'accountant'].includes(companyRole),
+    canDeleteData: ['owner', 'admin'].includes(companyRole),
+    canExport: ['owner', 'admin', 'accountant'].includes(companyRole),
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

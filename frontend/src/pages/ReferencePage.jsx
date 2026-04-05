@@ -12,7 +12,7 @@ import { formatDate } from '../lib/utils'
 import { useToast } from '../components/ui/Toast'
 
 export default function ReferencePage() {
-  const { profile } = useAuth()
+  const { profile, company, canEditData, canDeleteData } = useAuth()
   const toast = useToast()
   const [guides, setGuides] = useState([])
   const [loading, setLoading] = useState(true)
@@ -21,15 +21,15 @@ export default function ReferencePage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (profile) loadGuides()
-  }, [profile])
+    if (profile && company) loadGuides()
+  }, [profile, company])
 
   const loadGuides = async () => {
     setLoading(true)
     const { data, error } = await supabase
       .from('reference_guides')
       .select('*')
-      .eq('user_id', profile.id)
+      .eq('company_id', company.id)
       .order('country_code')
     if (!error) setGuides(data || [])
     setLoading(false)
@@ -41,7 +41,7 @@ export default function ReferencePage() {
     try {
       const { error } = await supabase
         .from('reference_guides')
-        .insert({ ...newGuide, user_id: profile.id })
+        .insert({ ...newGuide, user_id: profile.id, company_id: company.id })
       if (error) throw error
       toast.success('Saved', 'Reference guide added')
       setShowAdd(false)

@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Users,
   FileCheck,
+  Building2,
   CreditCard,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
@@ -11,6 +12,7 @@ const mobileNavItems = [
   { name: 'Home', to: '/dashboard', icon: LayoutDashboard },
   { name: 'Leads', to: '/leads', icon: Users },
   { name: 'Approvals', to: '/accountants', icon: FileCheck },
+  { name: 'Companies', to: '/companies', icon: Building2 },
   { name: 'Subs', to: '/subscriptions', icon: CreditCard },
 ]
 
