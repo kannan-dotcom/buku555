@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import Button from '../../components/ui/Button'
 import { APP_NAME } from '../../lib/constants'
@@ -94,7 +95,15 @@ export default function LoginPage() {
             </Button>
 
             <p className="text-center text-xs text-neutral-400 mt-6 leading-relaxed">
-              By signing in, you grant access to Google Drive, Sheets, and Gmail
+              By signing in, you agree to our{' '}
+              <Link to="/terms" className="text-primary-500 hover:text-primary-600 underline">
+                Terms of Service
+              </Link>{' '}
+              and{' '}
+              <Link to="/privacy" className="text-primary-500 hover:text-primary-600 underline">
+                Privacy Policy
+              </Link>
+              . You also grant access to Google Drive, Sheets, and Gmail
               for file storage and invoice delivery.
             </p>
           </div>

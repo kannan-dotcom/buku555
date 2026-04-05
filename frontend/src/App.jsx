@@ -7,6 +7,10 @@ import { PageLoader } from './components/ui/LoadingSpinner'
 // Auth pages
 import LoginPage from './pages/auth/LoginPage'
 
+// Public pages
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import TermsOfServicePage from './pages/TermsOfServicePage'
+
 // App pages
 import DashboardPage from './pages/DashboardPage'
 import ReceiptsPage from './pages/ReceiptsPage'
@@ -40,6 +44,10 @@ function AppRoutes() {
     <Routes>
       {/* Public auth route — Google sign-in only */}
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+
+      {/* Public pages — no auth required */}
+      <Route path="/privacy" element={<PrivacyPolicyPage />} />
+      <Route path="/terms" element={<TermsOfServicePage />} />
 
       {/* Google OAuth callback (from GDrive reconnect) */}
       <Route path="/auth/google/callback" element={<Navigate to="/gdrive-setup" replace />} />
