@@ -19,9 +19,12 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Get initial session and await profile fetch before clearing loading
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
+      if (session?.user) {
+        await fetchProfile(session.user.id)
+      }
       setLoading(false)
     })
 
@@ -29,29 +32,7 @@ export function AuthProvider({ children }) {
       async (event, session) => {
         setUser(session?.user ?? null)
         if (session?.user) {
-          const prof = await fetchProfile(session.user.id)
-
-          // Capture Google tokens on fresh sign-in
-          if (session.provider_token && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-            const tokenUpdates = {
-              gdrive_access_token: session.provider_token,
-            }
-            if (session.provider_refresh_token) {
-              tokenUpdates.gdrive_refresh_token = session.provider_refresh_token
-              tokenUpdates.gdrive_token_expiry = new Date(
-                Date.now() + 3600 * 1000
-              ).toISOString()
-            }
-            // Update if not already connected or tokens differ
-            if (!prof?.gdrive_connected || prof?.gdrive_access_token !== session.provider_token) {
-              await supabase
-                .from('profiles')
-                .update(tokenUpdates)
-                .eq('id', session.user.id)
-              // Re-fetch profile with updated tokens
-              await fetchProfile(session.user.id)
-            }
-          }
+          await fetchProfile(session.user.id)
         } else {
           setProfile(null)
         }
@@ -67,11 +48,6 @@ export function AuthProvider({ children }) {
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/dashboard`,
-        scopes: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/gmail.send',
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
       },
     })
     if (error) throw error
@@ -107,7 +83,6 @@ export function AuthProvider({ children }) {
     updateProfile,
     fetchProfile,
     isAuthenticated: !!user,
-    isGDriveConnected: !!profile?.gdrive_connected,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
