@@ -7,7 +7,6 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [initialized, setInitialized] = useState(false)
 
   const fetchProfile = useCallback(async (userId) => {
     const { data } = await supabase
@@ -22,29 +21,50 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let cancelled = false
 
-    console.log('[Auth] Init — URL:', window.location.href)
-    console.log('[Auth] Hash:', window.location.hash ? 'present' : 'none')
-    console.log('[Auth] Search:', window.location.search || 'none')
-
-    // Rely solely on onAuthStateChange for initialization.
-    // Supabase v2 fires INITIAL_SESSION as the first event, which handles
-    // both existing sessions AND implicit grant hash fragment processing.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    // Initialize auth state.
+    // getSession() internally awaits _initialize() which handles
+    // OAuth callback hash fragments and PKCE code exchange.
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
         if (cancelled) return
 
-        console.log('[Auth] onAuthStateChange:', event, 'user:', session?.user?.email || 'none')
+        console.log('[Auth] getSession result:', session?.user?.email || 'no session')
 
         if (session?.user) {
           setUser(session.user)
           const prof = await fetchProfile(session.user.id)
-          console.log('[Auth] Profile fetched:', prof?.email, 'role:', prof?.role)
-        } else {
+          console.log('[Auth] Profile:', prof?.email, 'role:', prof?.role)
+        }
+      } catch (err) {
+        console.error('[Auth] getSession error:', err)
+      }
+
+      if (!cancelled) {
+        setLoading(false)
+      }
+    }
+
+    initAuth()
+
+    // Listen for subsequent auth changes (sign-out, token refresh, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (cancelled) return
+        // Skip INITIAL_SESSION — handled by getSession() above
+        if (event === 'INITIAL_SESSION') return
+
+        console.log('[Auth] onAuthStateChange:', event, session?.user?.email || 'none')
+
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          setUser(session.user)
+          await fetchProfile(session.user.id)
+          setLoading(false)
+        } else if (event === 'SIGNED_OUT') {
           setUser(null)
           setProfile(null)
+          setLoading(false)
         }
-        setLoading(false)
-        setInitialized(true)
       }
     )
 
