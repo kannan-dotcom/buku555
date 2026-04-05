@@ -8,11 +8,15 @@ export default function LoginPage() {
   const { signInWithGoogle } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [rememberMe, setRememberMe] = useState(() => {
+    return localStorage.getItem('buku555_remember_me') !== 'false'
+  })
 
   const handleGoogleLogin = async () => {
     setLoading(true)
     setError(null)
     try {
+      localStorage.setItem('buku555_remember_me', rememberMe ? 'true' : 'false')
       await signInWithGoogle()
     } catch (err) {
       setError(err.message || 'Google sign-in failed')
@@ -94,7 +98,17 @@ export default function LoginPage() {
               Continue with Google
             </Button>
 
-            <p className="text-center text-xs text-neutral-400 mt-6 leading-relaxed">
+            <label className="flex items-center gap-2.5 mt-4 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-neutral-300 bg-white text-primary-500 focus:ring-primary-500"
+              />
+              <span className="text-sm text-neutral-600">Remember me for 30 days</span>
+            </label>
+
+            <p className="text-center text-xs text-neutral-400 mt-5 leading-relaxed">
               By signing in, you agree to our{' '}
               <Link to="/terms" className="text-primary-500 hover:text-primary-600 underline">
                 Terms of Service

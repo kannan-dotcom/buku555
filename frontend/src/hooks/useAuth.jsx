@@ -69,7 +69,24 @@ export function AuthProvider({ children }) {
   }, [fetchCompanyData])
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      // "Remember me" check: if user didn't check "remember me" and this is a new browser session, sign out
+      if (session?.user) {
+        const rememberMe = localStorage.getItem('buku555_remember_me')
+        const sessionActive = sessionStorage.getItem('buku555_session_active')
+
+        if (rememberMe === 'false' && !sessionActive) {
+          // New browser session without "remember me" — sign out
+          await supabase.auth.signOut()
+          setUser(null)
+          setLoading(false)
+          return
+        }
+
+        // Mark this browser session as active
+        sessionStorage.setItem('buku555_session_active', 'true')
+      }
+
       setUser(session?.user ?? null)
       if (session?.user) {
         fetchProfile(session.user.id).then(() => setLoading(false))
@@ -82,6 +99,11 @@ export function AuthProvider({ children }) {
       async (event, session) => {
         setUser(session?.user ?? null)
         if (session?.user) {
+          // Mark browser session as active on sign-in
+          if (event === 'SIGNED_IN') {
+            sessionStorage.setItem('buku555_session_active', 'true')
+          }
+
           const prof = await fetchProfile(session.user.id)
 
           // Capture Google tokens on fresh sign-in
@@ -138,6 +160,8 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
+    localStorage.removeItem('buku555_remember_me')
+    sessionStorage.removeItem('buku555_session_active')
     setUser(null)
     setProfile(null)
     setCompany(null)
