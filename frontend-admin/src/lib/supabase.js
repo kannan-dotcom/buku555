@@ -11,12 +11,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(
   supabaseUrl || 'http://localhost:54321',
-  supabaseAnonKey || 'placeholder-key',
-  {
-    auth: {
-      flowType: 'pkce',
-      detectSessionInUrl: true,
-      debug: true,
-    },
-  }
+  supabaseAnonKey || 'placeholder-key'
 )
+
+export const GOOGLE_CLIENT_ID = '143759391617-ok4bej6mvsecc31j7ttu6fe0tvva6p37.apps.googleusercontent.com'

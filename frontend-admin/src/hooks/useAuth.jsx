@@ -21,20 +21,14 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let cancelled = false
 
-    // Initialize auth state.
-    // getSession() internally awaits _initialize() which handles
-    // OAuth callback hash fragments and PKCE code exchange.
     const initAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (cancelled) return
 
-        console.log('[Auth] getSession result:', session?.user?.email || 'no session')
-
         if (session?.user) {
           setUser(session.user)
-          const prof = await fetchProfile(session.user.id)
-          console.log('[Auth] Profile:', prof?.email, 'role:', prof?.role)
+          await fetchProfile(session.user.id)
         }
       } catch (err) {
         console.error('[Auth] getSession error:', err)
@@ -47,14 +41,10 @@ export function AuthProvider({ children }) {
 
     initAuth()
 
-    // Listen for subsequent auth changes (sign-out, token refresh, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (cancelled) return
-        // Skip INITIAL_SESSION — handled by getSession() above
         if (event === 'INITIAL_SESSION') return
-
-        console.log('[Auth] onAuthStateChange:', event, session?.user?.email || 'none')
 
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           setUser(session.user)
@@ -74,12 +64,14 @@ export function AuthProvider({ children }) {
     }
   }, [fetchProfile])
 
-  const signInWithGoogle = async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
+  /**
+   * Sign in using Google ID token (from Google Identity Services).
+   * No browser redirects — the entire flow happens client-side.
+   */
+  const signInWithIdToken = async (idToken) => {
+    const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+      token: idToken,
     })
     if (error) throw error
     return data
@@ -109,7 +101,7 @@ export function AuthProvider({ children }) {
     user,
     profile,
     loading,
-    signInWithGoogle,
+    signInWithIdToken,
     signOut,
     updateProfile,
     fetchProfile,

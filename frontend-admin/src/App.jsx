@@ -1,5 +1,4 @@
-import { useEffect } from 'react'
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { ToastProvider } from './components/ui/Toast'
 import AdminLayout from './components/layout/AdminLayout'
@@ -18,39 +17,13 @@ function isAllowedAdmin(profile, user) {
   return profile?.role === 'admin' && ALLOWED_ADMIN_EMAILS.includes(email.toLowerCase())
 }
 
-/**
- * Dedicated OAuth callback handler — runs OUTSIDE of any auth guards.
- * Supabase redirects here with #access_token=... in the hash.
- * We wait for auth to fully resolve (session + profile), then redirect
- * to /dashboard or /login based on the result.
- */
-function AuthCallback() {
-  const { isAuthenticated, profile, loading, user } = useAuth()
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    if (loading) return
-
-    if (isAuthenticated && isAllowedAdmin(profile, user)) {
-      navigate('/dashboard', { replace: true })
-    } else if (isAuthenticated && !isAllowedAdmin(profile, user)) {
-      window.location.href = `${MAIN_APP_URL}/dashboard`
-    } else {
-      navigate('/login', { replace: true })
-    }
-  }, [loading, isAuthenticated, profile, user, navigate])
-
-  return <PageLoader />
-}
-
 function AdminRoute({ children }) {
   const { isAuthenticated, profile, loading, user } = useAuth()
   if (loading) return <PageLoader />
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
   }
-  // If authenticated but profile not yet loaded, keep showing loader
-  // instead of immediately redirecting to main app
+  // Wait for profile before deciding admin status
   if (!profile) return <PageLoader />
   if (!isAllowedAdmin(profile, user)) {
     window.location.href = `${MAIN_APP_URL}/dashboard`
@@ -75,7 +48,6 @@ function PublicRoute({ children }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/login" element={<PublicRoute><AdminLoginPage /></PublicRoute>} />
 
       <Route element={<AdminRoute><AdminLayout /></AdminRoute>}>
