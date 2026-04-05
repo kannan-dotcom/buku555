@@ -34,24 +34,10 @@ import ReferencePage from './pages/ReferencePage'
 import SettingsPage from './pages/SettingsPage'
 import GDriveSetupPage from './pages/GDriveSetupPage'
 
-// Admin pages
-import BackOfficeDashboard from './pages/admin/BackOfficeDashboard'
-import LeadManagement from './pages/admin/LeadManagement'
-import AccountantApprovals from './pages/admin/AccountantApprovals'
-import SubscriptionManagement from './pages/admin/SubscriptionManagement'
-
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
   if (loading) return <PageLoader />
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  return children
-}
-
-function AdminRoute({ children }) {
-  const { isAuthenticated, profile, loading } = useAuth()
-  if (loading) return <PageLoader />
-  if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (profile?.role !== 'admin') return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -60,6 +46,11 @@ function PublicRoute({ children }) {
   if (loading) return <PageLoader />
   if (isAuthenticated) return <Navigate to="/dashboard" replace />
   return children
+}
+
+function BackOfficeRedirect() {
+  window.location.href = 'https://backoffice.buku555.online'
+  return null
 }
 
 function AppRoutes() {
@@ -107,19 +98,8 @@ function AppRoutes() {
         <Route path="/gdrive-setup" element={<GDriveSetupPage />} />
       </Route>
 
-      {/* Admin back office routes */}
-      <Route
-        element={
-          <AdminRoute>
-            <AppLayout />
-          </AdminRoute>
-        }
-      >
-        <Route path="/admin" element={<BackOfficeDashboard />} />
-        <Route path="/admin/leads" element={<LeadManagement />} />
-        <Route path="/admin/accountants" element={<AccountantApprovals />} />
-        <Route path="/admin/subscriptions" element={<SubscriptionManagement />} />
-      </Route>
+      {/* Redirect old admin routes to back office subdomain */}
+      <Route path="/admin/*" element={<BackOfficeRedirect />} />
 
       {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
