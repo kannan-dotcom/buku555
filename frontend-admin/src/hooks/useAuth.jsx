@@ -3,11 +3,17 @@ import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
 
+// Check if the URL contains OAuth callback tokens in the hash
+function hasOAuthCallbackInURL() {
+  const hash = window.location.hash
+  return hash.includes('access_token=') || hash.includes('error=')
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  const initializedRef = useRef(false)
+  const resolvedRef = useRef(false)
 
   const fetchProfile = useCallback(async (userId) => {
     const { data } = await supabase
@@ -22,11 +28,9 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let cancelled = false
 
-    // Initialize: get session + profile before showing anything
-    const initialize = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-
-      if (cancelled) return
+    const resolve = async (session) => {
+      if (cancelled || resolvedRef.current) return
+      resolvedRef.current = true
 
       if (session?.user) {
         setUser(session.user)
@@ -35,33 +39,41 @@ export function AuthProvider({ children }) {
         setUser(null)
         setProfile(null)
       }
-
-      initializedRef.current = true
       setLoading(false)
     }
 
-    initialize()
-
+    // Listen for auth state changes first — this is what processes
+    // the OAuth hash fragment and fires SIGNED_IN
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        // Don't process auth changes until initial load is complete
-        // to prevent race conditions during OAuth redirect
-        if (!initializedRef.current) return
+        if (cancelled) return
 
-        if (session?.user) {
-          // Set loading true while we fetch the profile to prevent
-          // AdminRoute from seeing user without profile
-          setLoading(true)
-          setUser(session.user)
-          await fetchProfile(session.user.id)
-          setLoading(false)
+        if (!resolvedRef.current) {
+          // First auth event — this resolves initialization
+          await resolve(session)
         } else {
-          setUser(null)
-          setProfile(null)
-          setLoading(false)
+          // Subsequent auth changes (sign out, token refresh)
+          if (session?.user) {
+            setLoading(true)
+            setUser(session.user)
+            await fetchProfile(session.user.id)
+            setLoading(false)
+          } else {
+            setUser(null)
+            setProfile(null)
+            setLoading(false)
+          }
         }
       }
     )
+
+    // If there's an OAuth callback in the URL, let onAuthStateChange handle it.
+    // Otherwise, use getSession to check for existing session.
+    if (!hasOAuthCallbackInURL()) {
+      supabase.auth.getSession().then(async ({ data: { session } }) => {
+        await resolve(session)
+      })
+    }
 
     return () => {
       cancelled = true
