@@ -1,19 +1,13 @@
-import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
-
-// Check if the URL contains OAuth callback tokens in the hash
-function hasOAuthCallbackInURL() {
-  const hash = window.location.hash
-  return hash.includes('access_token=') || hash.includes('error=')
-}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  const resolvedRef = useRef(false)
+  const [initialized, setInitialized] = useState(false)
 
   const fetchProfile = useCallback(async (userId) => {
     const { data } = await supabase
@@ -28,52 +22,31 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let cancelled = false
 
-    const resolve = async (session) => {
-      if (cancelled || resolvedRef.current) return
-      resolvedRef.current = true
+    console.log('[Auth] Init — URL:', window.location.href)
+    console.log('[Auth] Hash:', window.location.hash ? 'present' : 'none')
+    console.log('[Auth] Search:', window.location.search || 'none')
 
-      if (session?.user) {
-        setUser(session.user)
-        await fetchProfile(session.user.id)
-      } else {
-        setUser(null)
-        setProfile(null)
-      }
-      setLoading(false)
-    }
-
-    // Listen for auth state changes first — this is what processes
-    // the OAuth hash fragment and fires SIGNED_IN
+    // Rely solely on onAuthStateChange for initialization.
+    // Supabase v2 fires INITIAL_SESSION as the first event, which handles
+    // both existing sessions AND implicit grant hash fragment processing.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (cancelled) return
 
-        if (!resolvedRef.current) {
-          // First auth event — this resolves initialization
-          await resolve(session)
+        console.log('[Auth] onAuthStateChange:', event, 'user:', session?.user?.email || 'none')
+
+        if (session?.user) {
+          setUser(session.user)
+          const prof = await fetchProfile(session.user.id)
+          console.log('[Auth] Profile fetched:', prof?.email, 'role:', prof?.role)
         } else {
-          // Subsequent auth changes (sign out, token refresh)
-          if (session?.user) {
-            setLoading(true)
-            setUser(session.user)
-            await fetchProfile(session.user.id)
-            setLoading(false)
-          } else {
-            setUser(null)
-            setProfile(null)
-            setLoading(false)
-          }
+          setUser(null)
+          setProfile(null)
         }
+        setLoading(false)
+        setInitialized(true)
       }
     )
-
-    // If there's an OAuth callback in the URL, let onAuthStateChange handle it.
-    // Otherwise, use getSession to check for existing session.
-    if (!hasOAuthCallbackInURL()) {
-      supabase.auth.getSession().then(async ({ data: { session } }) => {
-        await resolve(session)
-      })
-    }
 
     return () => {
       cancelled = true

@@ -19,9 +19,14 @@ function isAllowedAdmin(profile, user) {
 
 function AdminRoute({ children }) {
   const { isAuthenticated, profile, loading, user } = useAuth()
+  console.log('[AdminRoute] loading:', loading, 'isAuth:', isAuthenticated, 'profile:', profile?.email, 'role:', profile?.role)
   if (loading) return <PageLoader />
-  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (!isAuthenticated) {
+    console.log('[AdminRoute] Not authenticated, redirecting to /login')
+    return <Navigate to="/login" replace />
+  }
   if (!isAllowedAdmin(profile, user)) {
+    console.log('[AdminRoute] Not allowed admin, redirecting to main app. email:', profile?.email || user?.email, 'role:', profile?.role)
     window.location.href = `${MAIN_APP_URL}/dashboard`
     return <PageLoader />
   }
@@ -30,11 +35,13 @@ function AdminRoute({ children }) {
 
 function PublicRoute({ children }) {
   const { isAuthenticated, profile, loading, user } = useAuth()
+  console.log('[PublicRoute] loading:', loading, 'isAuth:', isAuthenticated, 'profile:', profile?.email)
   if (loading) return <PageLoader />
   if (isAuthenticated && isAllowedAdmin(profile, user)) {
     return <Navigate to="/dashboard" replace />
   }
   if (isAuthenticated && !isAllowedAdmin(profile, user)) {
+    console.log('[PublicRoute] Authenticated but not admin, redirecting to main app')
     window.location.href = `${MAIN_APP_URL}/dashboard`
     return <PageLoader />
   }
