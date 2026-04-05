@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
@@ -7,6 +7,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const initializedRef = useRef(false)
 
   const fetchProfile = useCallback(async (userId) => {
     const { data } = await supabase
@@ -19,28 +20,53 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    // Get initial session and await profile fetch before clearing loading
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setUser(session?.user ?? null)
+    let cancelled = false
+
+    // Initialize: get session + profile before showing anything
+    const initialize = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (cancelled) return
+
       if (session?.user) {
+        setUser(session.user)
         await fetchProfile(session.user.id)
+      } else {
+        setUser(null)
+        setProfile(null)
       }
+
+      initializedRef.current = true
       setLoading(false)
-    })
+    }
+
+    initialize()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setUser(session?.user ?? null)
+        // Don't process auth changes until initial load is complete
+        // to prevent race conditions during OAuth redirect
+        if (!initializedRef.current) return
+
         if (session?.user) {
+          // Set loading true while we fetch the profile to prevent
+          // AdminRoute from seeing user without profile
+          setLoading(true)
+          setUser(session.user)
           await fetchProfile(session.user.id)
+          setLoading(false)
         } else {
+          setUser(null)
           setProfile(null)
+          setLoading(false)
         }
-        setLoading(false)
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
   }, [fetchProfile])
 
   const signInWithGoogle = async () => {
