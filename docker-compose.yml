@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    command: npm run dev -- --host 0.0.0.0
+    depends_on:
+      - supabase-db
+
+  supabase-db:
+    image: supabase/postgres:15.1.1.78
+    ports:
+      - "54322:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: buku555
+    volumes:
+      - supabase-db-data:/var/lib/postgresql/data
+
+volumes:
+  supabase-db-data:
