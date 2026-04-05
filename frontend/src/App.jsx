@@ -2,14 +2,23 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { ToastProvider } from './components/ui/Toast'
 import AppLayout from './components/layout/AppLayout'
+import MarketingLayout from './components/layout/MarketingLayout'
 import { PageLoader } from './components/ui/LoadingSpinner'
 
 // Auth pages
 import LoginPage from './pages/auth/LoginPage'
 
-// Public pages
+// Public legal pages
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsOfServicePage from './pages/TermsOfServicePage'
+
+// Marketing pages
+import LandingPage from './pages/marketing/LandingPage'
+import FeaturesPage from './pages/marketing/FeaturesPage'
+import PricingPage from './pages/marketing/PricingPage'
+import WhyBuku555Page from './pages/marketing/WhyBuku555Page'
+import ContactPage from './pages/marketing/ContactPage'
+import AccountantSignupPage from './pages/marketing/AccountantSignupPage'
 
 // App pages
 import DashboardPage from './pages/DashboardPage'
@@ -25,10 +34,24 @@ import ReferencePage from './pages/ReferencePage'
 import SettingsPage from './pages/SettingsPage'
 import GDriveSetupPage from './pages/GDriveSetupPage'
 
+// Admin pages
+import BackOfficeDashboard from './pages/admin/BackOfficeDashboard'
+import LeadManagement from './pages/admin/LeadManagement'
+import AccountantApprovals from './pages/admin/AccountantApprovals'
+import SubscriptionManagement from './pages/admin/SubscriptionManagement'
+
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
   if (loading) return <PageLoader />
   if (!isAuthenticated) return <Navigate to="/login" replace />
+  return children
+}
+
+function AdminRoute({ children }) {
+  const { isAuthenticated, profile, loading } = useAuth()
+  if (loading) return <PageLoader />
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (profile?.role !== 'admin') return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -42,10 +65,20 @@ function PublicRoute({ children }) {
 function AppRoutes() {
   return (
     <Routes>
+      {/* Marketing pages with shared layout */}
+      <Route element={<MarketingLayout />}>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/features" element={<FeaturesPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/why-buku555" element={<WhyBuku555Page />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/for-accountants" element={<AccountantSignupPage />} />
+      </Route>
+
       {/* Public auth route — Google sign-in only */}
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
 
-      {/* Public pages — no auth required */}
+      {/* Public legal pages — no auth, no marketing layout */}
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
       <Route path="/terms" element={<TermsOfServicePage />} />
 
@@ -74,9 +107,22 @@ function AppRoutes() {
         <Route path="/gdrive-setup" element={<GDriveSetupPage />} />
       </Route>
 
-      {/* Default redirect */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      {/* Admin back office routes */}
+      <Route
+        element={
+          <AdminRoute>
+            <AppLayout />
+          </AdminRoute>
+        }
+      >
+        <Route path="/admin" element={<BackOfficeDashboard />} />
+        <Route path="/admin/leads" element={<LeadManagement />} />
+        <Route path="/admin/accountants" element={<AccountantApprovals />} />
+        <Route path="/admin/subscriptions" element={<SubscriptionManagement />} />
+      </Route>
+
+      {/* Catch-all */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
