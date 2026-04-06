@@ -58,14 +58,25 @@ export function AuthProvider({ children }) {
   }, [])
 
   const fetchProfile = useCallback(async (userId) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    setProfile(data)
-    if (data) await fetchCompanyData(data)
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      if (error) {
+        console.error('[Auth] fetchProfile error:', error.message)
+        setProfile(null)
+        return null
+      }
+      setProfile(data)
+      if (data) await fetchCompanyData(data)
+      return data
+    } catch (err) {
+      console.error('[Auth] fetchProfile exception:', err)
+      setProfile(null)
+      return null
+    }
   }, [fetchCompanyData])
 
   useEffect(() => {

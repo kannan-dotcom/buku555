@@ -6,18 +6,33 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [profileLoaded, setProfileLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
   // Guard: when true, onAuthStateChange is skipped (sign-in handles state directly)
   const signingIn = useRef(false)
 
   const fetchProfile = useCallback(async (userId) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    setProfile(data)
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      if (error) {
+        console.error('[Auth] fetchProfile error:', error.message)
+        setProfile(null)
+        setProfileLoaded(true)
+        return null
+      }
+      setProfile(data)
+      setProfileLoaded(true)
+      return data
+    } catch (err) {
+      console.error('[Auth] fetchProfile exception:', err)
+      setProfile(null)
+      setProfileLoaded(true)
+      return null
+    }
   }, [])
 
   useEffect(() => {
@@ -99,6 +114,7 @@ export function AuthProvider({ children }) {
     if (error) throw error
     setUser(null)
     setProfile(null)
+    setProfileLoaded(false)
   }
 
   const updateProfile = async (updates) => {
@@ -117,6 +133,7 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     profile,
+    profileLoaded,
     loading,
     signInWithIdToken,
     signOut,

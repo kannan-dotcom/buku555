@@ -19,13 +19,13 @@ function isAllowedAdmin(profile, user) {
 }
 
 function AdminRoute({ children }) {
-  const { isAuthenticated, profile, loading, user } = useAuth()
+  const { isAuthenticated, profile, profileLoaded, loading, user } = useAuth()
   if (loading) return <PageLoader />
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
   }
-  // Wait for profile before deciding admin status
-  if (!profile) return <PageLoader />
+  // Wait for profile fetch to complete (not forever — profileLoaded is always set)
+  if (!profileLoaded) return <PageLoader />
   if (!isAllowedAdmin(profile, user)) {
     window.location.href = `${MAIN_APP_URL}/dashboard`
     return <PageLoader />
@@ -34,11 +34,11 @@ function AdminRoute({ children }) {
 }
 
 function PublicRoute({ children }) {
-  const { isAuthenticated, profile, loading, user } = useAuth()
+  const { isAuthenticated, profile, profileLoaded, loading, user } = useAuth()
   if (loading) return <PageLoader />
   if (isAuthenticated) {
-    // Wait for profile before deciding admin status
-    if (!profile) return <PageLoader />
+    // Wait for profile fetch to complete
+    if (!profileLoaded) return <PageLoader />
     if (isAllowedAdmin(profile, user)) {
       return <Navigate to="/dashboard" replace />
     }
