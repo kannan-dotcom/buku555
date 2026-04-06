@@ -161,7 +161,7 @@ export default function LandingPage() {
               {/* CTAs */}
               <div className="mt-8 flex flex-wrap gap-4">
                 <Link
-                  to="/login"
+                  to="/signup"
                   className="inline-flex items-center gap-2 px-7 py-3.5 text-base font-semibold
                     text-white rounded-xl shadow-lg transition-all duration-200
                     hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
@@ -511,7 +511,7 @@ export default function LandingPage() {
 
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              to="/login"
+              to="/signup"
               className="inline-flex items-center gap-2 px-8 py-4 text-base font-bold
                 text-white rounded-xl shadow-lg transition-all duration-200
                 hover:shadow-xl hover:scale-[1.03] active:scale-[0.98]"

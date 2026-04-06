@@ -170,7 +170,7 @@ export default function WhyBuku555Page() {
 
             <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
               <Link
-                to="/login"
+                to="/signup"
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-primary-500 text-white font-semibold text-lg hover:bg-primary-600 transition-all duration-200 shadow-lg shadow-primary-500/25 hover:shadow-xl hover:shadow-primary-500/30"
               >
                 Get Started Free
@@ -461,7 +461,7 @@ export default function WhyBuku555Page() {
             their books. No credit card required.
           </p>
           <Link
-            to="/login"
+            to="/signup"
             className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-primary-500 text-white font-semibold text-lg hover:bg-primary-600 transition-all duration-200 shadow-lg shadow-primary-500/25 hover:shadow-xl hover:shadow-primary-500/30"
           >
             Get Started Free &mdash; No credit card required

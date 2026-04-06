@@ -108,7 +108,7 @@ export default function MarketingLayout() {
                 Login
               </Link>
               <Link
-                to="/login"
+                to="/signup"
                 className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold
                   text-white rounded-xl transition-all duration-200
                   hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
@@ -166,7 +166,7 @@ export default function MarketingLayout() {
                     Login
                   </Link>
                   <Link
-                    to="/login"
+                    to="/signup"
                     onClick={() => setMobileOpen(false)}
                     className="block w-full text-center py-3 text-sm font-semibold
                       text-white rounded-xl transition-all duration-200 hover:shadow-lg"

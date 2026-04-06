@@ -32,7 +32,7 @@ const plans = [
     annualTotal: null,
     users: 'Up to 2 users',
     cta: 'Get Started Free',
-    ctaLink: '/login',
+    ctaLink: '/signup',
     ctaStyle: 'outline',
     highlighted: false,
     features: [
@@ -53,7 +53,7 @@ const plans = [
     annualTotal: 421.20,
     users: 'Up to 5 users',
     cta: 'Start Free Trial',
-    ctaLink: '/login',
+    ctaLink: '/signup',
     ctaStyle: 'primary',
     highlighted: true,
     features: [

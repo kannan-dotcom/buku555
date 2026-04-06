@@ -320,7 +320,7 @@ export default function FeaturesPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              to="/login"
+              to="/signup"
               className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-white text-primary-600 font-semibold text-base hover:bg-neutral-50 transition-colors shadow-elevated"
             >
               Start Free

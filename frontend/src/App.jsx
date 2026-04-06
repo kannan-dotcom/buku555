@@ -7,6 +7,7 @@ import { PageLoader } from './components/ui/LoadingSpinner'
 
 // Auth pages
 import LoginPage from './pages/auth/LoginPage'
+import SignUpPage from './pages/auth/SignUpPage'
 import CompanyRegistrationPage from './pages/auth/CompanyRegistrationPage'
 import RegistrationPendingPage from './pages/auth/RegistrationPendingPage'
 import AcceptInvitePage from './pages/auth/AcceptInvitePage'
@@ -88,6 +89,9 @@ function AppRoutes() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/for-accountants" element={<AccountantSignupPage />} />
       </Route>
+
+      {/* Public signup — no auth required, submits lead for review */}
+      <Route path="/signup" element={<SignUpPage />} />
 
       {/* Public auth route — Google sign-in only */}
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
