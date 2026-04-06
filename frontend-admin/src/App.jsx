@@ -35,10 +35,13 @@ function AdminRoute({ children }) {
 function PublicRoute({ children }) {
   const { isAuthenticated, profile, loading, user } = useAuth()
   if (loading) return <PageLoader />
-  if (isAuthenticated && isAllowedAdmin(profile, user)) {
-    return <Navigate to="/dashboard" replace />
-  }
-  if (isAuthenticated && !isAllowedAdmin(profile, user)) {
+  if (isAuthenticated) {
+    // Wait for profile before deciding admin status
+    if (!profile) return <PageLoader />
+    if (isAllowedAdmin(profile, user)) {
+      return <Navigate to="/dashboard" replace />
+    }
+    // Authenticated but not an allowed admin — send to main app
     window.location.href = `${MAIN_APP_URL}/dashboard`
     return <PageLoader />
   }
