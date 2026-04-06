@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Shield } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { GOOGLE_CLIENT_ID } from '../../lib/supabase'
@@ -6,6 +7,7 @@ import { APP_NAME, APP_TAGLINE, ALLOWED_ADMIN_EMAILS } from '../../lib/constants
 
 export default function AdminLoginPage() {
   const { signInWithIdToken } = useAuth()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const buttonRef = useRef(null)
@@ -15,11 +17,13 @@ export default function AdminLoginPage() {
     setError(null)
     try {
       await signInWithIdToken(response.credential)
+      // Navigate explicitly after sign-in + profile are fully loaded
+      navigate('/dashboard', { replace: true })
     } catch (err) {
       setError(err.message || 'Google sign-in failed')
       setLoading(false)
     }
-  }, [signInWithIdToken])
+  }, [signInWithIdToken, navigate])
 
   useEffect(() => {
     // Load the Google Identity Services script

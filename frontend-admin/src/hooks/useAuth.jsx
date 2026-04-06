@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
@@ -7,6 +7,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  // Guard: when true, onAuthStateChange is skipped (sign-in handles state directly)
+  const signingIn = useRef(false)
 
   const fetchProfile = useCallback(async (userId) => {
     const { data } = await supabase
@@ -45,6 +47,8 @@ export function AuthProvider({ children }) {
       async (event, session) => {
         if (cancelled) return
         if (event === 'INITIAL_SESSION') return
+        // Skip if signInWithIdToken is handling state directly
+        if (signingIn.current) return
 
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           setUser(session.user)
@@ -67,14 +71,27 @@ export function AuthProvider({ children }) {
   /**
    * Sign in using Google ID token (from Google Identity Services).
    * No browser redirects — the entire flow happens client-side.
+   * Sets user + profile atomically so route guards never see a
+   * partial state (user set but profile null).
    */
   const signInWithIdToken = async (idToken) => {
-    const { data, error } = await supabase.auth.signInWithIdToken({
-      provider: 'google',
-      token: idToken,
-    })
-    if (error) throw error
-    return data
+    signingIn.current = true
+    try {
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: idToken,
+      })
+      if (error) throw error
+      if (data.session?.user) {
+        const prof = await fetchProfile(data.session.user.id)
+        // Set user only AFTER profile is loaded — prevents partial state
+        setUser(data.session.user)
+        setLoading(false)
+      }
+      return data
+    } finally {
+      signingIn.current = false
+    }
   }
 
   const signOut = async () => {
