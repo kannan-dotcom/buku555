@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
   Users,
+  UserCog,
   FileCheck,
   Building2,
   CreditCard,
@@ -14,6 +15,7 @@ import { APP_NAME, APP_TAGLINE, MAIN_APP_URL } from '../../lib/constants'
 const navigation = [
   { name: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
   { name: 'Lead Management', to: '/leads', icon: Users },
+  { name: 'User Management', to: '/users', icon: UserCog },
   { name: 'Accountant Approvals', to: '/accountants', icon: FileCheck },
   { name: 'Company Approvals', to: '/companies', icon: Building2 },
   { name: 'Subscriptions', to: '/subscriptions', icon: CreditCard },

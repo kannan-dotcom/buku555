@@ -11,6 +11,7 @@ import LeadManagement from './pages/admin/LeadManagement'
 import AccountantApprovals from './pages/admin/AccountantApprovals'
 import CompanyApprovals from './pages/admin/CompanyApprovals'
 import SubscriptionManagement from './pages/admin/SubscriptionManagement'
+import UserManagement from './pages/admin/UserManagement'
 
 function isAllowedAdmin(profile, user) {
   const email = profile?.email || user?.email || ''
@@ -56,6 +57,7 @@ function AppRoutes() {
       <Route element={<AdminRoute><AdminLayout /></AdminRoute>}>
         <Route path="/dashboard" element={<BackOfficeDashboard />} />
         <Route path="/leads" element={<LeadManagement />} />
+        <Route path="/users" element={<UserManagement />} />
         <Route path="/accountants" element={<AccountantApprovals />} />
         <Route path="/companies" element={<CompanyApprovals />} />
         <Route path="/subscriptions" element={<SubscriptionManagement />} />
